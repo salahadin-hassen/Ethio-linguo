@@ -9,11 +9,11 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // Core brand palette (starting tokens from the brief).
   static const indigo = Color(0xFF242443);
-  static const ivory = Color(0xFFFFF8EF);
+  static const ivory = Color(0xFFFFFFFF); // clean white canvas
   static const coral = Color(0xFFFF705B);
   static const teal = Color(0xFF20B8A6);
   static const gold = Color(0xFFF4BD50);
-  static const periwinkle = Color(0xFF7183F5);
+  static const periwinkle = Color(0xFF6B7BD6);
 
   // Accessible text variants for use on ivory / white.
   static const coralInk = Color(0xFFC23D2A); // 4.99:1 on ivory
@@ -30,12 +30,12 @@ abstract final class AppColors {
 
   // Neutrals.
   static const surface = Color(0xFFFFFFFF);
-  static const surfaceSunken = Color(0xFFF6EDE0);
-  static const outline = Color(0xFFEADFCF);
-  static const outlineStrong = Color(0xFFD8CBB7);
+  static const surfaceSunken = Color(0xFFF7F7F8);
+  static const outline = Color(0xFFE5E5E8);
+  static const outlineStrong = Color(0xFFD1D1D6);
   static const textPrimary = indigo; // 14.15:1 on ivory
-  static const textMuted = Color(0xFF6B6A85); // 4.95:1 on ivory
-  static const disabledFill = Color(0xFFE9E1D5);
+  static const textMuted = Color(0xFF6B6B78); // 5.3:1 on white
+  static const disabledFill = Color(0xFFEDEDF0);
   static const disabledText = Color(0xFF8C8AA0);
 
   // Dark surfaces (hero headers, lesson feedback).
@@ -43,8 +43,8 @@ abstract final class AppColors {
   static const onIndigoMuted = Color(0xFFC9C8E6); // 9.0:1 on indigo
 
   // Soft tints for backgrounds behind brand elements.
-  static const coralTint = Color(0xFFFFE6E1);
-  static const tealTint = Color(0xFFDDF5F1);
-  static const goldTint = Color(0xFFFDF0D2);
-  static const periwinkleTint = Color(0xFFE6E9FE);
+  static const coralTint = Color(0xFFFFF3F1);
+  static const tealTint = Color(0xFFEFF8F6);
+  static const goldTint = Color(0xFFFFF8E8);
+  static const periwinkleTint = Color(0xFFF3F4F8);
 }
