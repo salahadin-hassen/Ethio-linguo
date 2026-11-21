@@ -78,10 +78,13 @@ class FeedbackPanel extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Mascot(
-                    mood: good ? MascotMood.happy : MascotMood.encouraging,
+                  CharacterAvatar(
+                    character: CastMember.spark,
+                    state: good
+                        ? CharacterState.happy
+                        : CharacterState.encouraging,
                     size: 64,
-                    animate: false,
+                    reactOnMount: true,
                   ),
                   const SizedBox(width: Space.sm),
                   Expanded(

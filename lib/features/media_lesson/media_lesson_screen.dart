@@ -6,6 +6,7 @@ import '../../app/app_services.dart';
 import '../../core/components/app_button.dart';
 import '../../core/components/empty_state.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/motion/motion.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -67,6 +68,7 @@ class _MediaLessonScreenState extends State<MediaLessonScreen> {
         arguments: c.tutorContext(focus: e),
       ),
     );
+    c.clearSelection();
   }
 
   Future<void> _finish() async {
@@ -287,40 +289,58 @@ class _SubtitlePanel extends StatelessWidget {
         horizontal: Space.gutter,
         vertical: Space.sm,
       ),
-      child: seg == null
-          ? Center(
-              child: Text(
-                s.en(S.tapPhraseHint),
-                style: AppType.bodySmall.copyWith(
-                  color: AppColors.onIndigoMuted,
-                ),
-              ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HighlightedLine(
-                  key: const ValueKey('subtitle_en'),
-                  line: seg.originalText,
-                  expressions: c.transcript!.expressionsIn(seg),
-                  style: AppType.title.copyWith(color: AppColors.ivory),
-                  onExpression: onExpression,
-                ),
-                if (c.showTranslation && translation != null) ...[
-                  const SizedBox(height: 4),
-                  Directionality(
-                    textDirection: s.direction,
-                    child: Text(
-                      translation,
-                      key: const ValueKey('subtitle_native'),
-                      style: AppType.body.copyWith(
-                        color: AppColors.onIndigoMuted,
-                      ),
+      child: AnimatedSwitcher(
+        duration: Motion.of(context, Motion.feedback),
+        switchInCurve: Motion.emphasized,
+        transitionBuilder: (child, a) => FadeTransition(
+          opacity: a,
+          child: SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 0.15),
+              end: Offset.zero,
+            ).animate(a),
+            child: child,
+          ),
+        ),
+        child: KeyedSubtree(
+          key: ValueKey(seg?.id),
+          child: seg == null
+              ? Center(
+                  child: Text(
+                    s.en(S.tapPhraseHint),
+                    style: AppType.bodySmall.copyWith(
+                      color: AppColors.onIndigoMuted,
                     ),
                   ),
-                ],
-              ],
-            ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _HighlightedLine(
+                      key: const ValueKey('subtitle_en'),
+                      line: seg.originalText,
+                      expressions: c.transcript!.expressionsIn(seg),
+                      style: AppType.title.copyWith(color: AppColors.ivory),
+                      onExpression: onExpression,
+                      selected: c.selected,
+                    ),
+                    if (c.showTranslation && translation != null) ...[
+                      const SizedBox(height: 4),
+                      Directionality(
+                        textDirection: s.direction,
+                        child: Text(
+                          translation,
+                          key: const ValueKey('subtitle_native'),
+                          style: AppType.body.copyWith(
+                            color: AppColors.onIndigoMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+        ),
+      ),
     );
   }
 }
@@ -334,9 +354,11 @@ class _HighlightedLine extends StatefulWidget {
     required this.style,
     required this.onExpression,
     this.highlight = AppColors.gold,
+    this.selected,
   });
 
   final Color highlight;
+  final Expression? selected;
   final String line;
   final List<Expression> expressions;
   final TextStyle style;
@@ -376,7 +398,12 @@ class _HighlightedLineState extends State<_HighlightedLine> {
                 text: s.text,
                 semanticsLabel: '${s.text}, tap to learn',
                 style: TextStyle(
-                  color: widget.highlight,
+                  backgroundColor: identical(s.expression, widget.selected)
+                      ? AppColors.gold
+                      : null,
+                  color: identical(s.expression, widget.selected)
+                      ? AppColors.indigo
+                      : widget.highlight,
                   fontWeight: FontWeight.w900,
                   decoration: TextDecoration.underline,
                   decorationColor: widget.highlight,
@@ -506,6 +533,7 @@ class _TranscriptRow extends StatelessWidget {
                 style: AppType.body.copyWith(color: AppColors.indigo),
                 highlight: AppColors.goldInk,
                 onExpression: onExpression,
+                selected: c.selected,
               ),
               if (c.showTranslation && translation != null)
                 Directionality(

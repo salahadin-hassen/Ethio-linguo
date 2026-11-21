@@ -23,9 +23,12 @@ abstract interface class SpeechRecognizer {
   bool get available;
 
   /// Streams partial and final results until [stop] or a pause.
+  /// [onLevel] receives the REAL input level (0..1) when the platform
+  /// reports one; it is never synthesised.
   Future<void> listen({
     required String localeId,
     required void Function(RecognizedSpeech) onResult,
+    void Function(double level)? onLevel,
   });
   Future<void> stop();
   Future<void> cancel();
@@ -65,7 +68,12 @@ class PlatformSpeechRecognizer implements SpeechRecognizer {
   Future<void> listen({
     required String localeId,
     required void Function(RecognizedSpeech) onResult,
+    void Function(double level)? onLevel,
   }) => _stt.listen(
+    // Platform levels are roughly -2..10 dB; normalise to 0..1.
+    onSoundLevelChange: onLevel == null
+        ? null
+        : (db) => onLevel(((db + 2) / 12).clamp(0.0, 1.0)),
     onResult: (SpeechRecognitionResult r) => onResult(
       RecognizedSpeech(
         r.recognizedWords,
@@ -142,6 +150,7 @@ class UnavailableSpeechRecognizer implements SpeechRecognizer {
   Future<void> listen({
     required String localeId,
     required void Function(RecognizedSpeech) onResult,
+    void Function(double level)? onLevel,
   }) async {}
   @override
   Future<void> stop() async {}

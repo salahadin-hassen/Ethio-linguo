@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/app_services.dart';
+import '../../services/audio/sound_effects.dart';
+
 import '../../app/app_controller.dart';
 import '../../app/app_scope.dart';
 import '../../core/components/app_button.dart';
@@ -117,6 +120,12 @@ class _LessonScreenState extends State<LessonScreen> {
       kindOverride: _kindOverride,
     );
     if (!mounted) return;
+    // Bigger events get the bigger sound; never both.
+    ServicesScope.of(context).sounds.play(
+      reward.newAchievements.isNotEmpty || reward.leveledUp
+          ? Sfx.achievement
+          : Sfx.complete,
+    );
     Navigator.of(context)
         .pushReplacementNamed(AppRoutes.complete, arguments: reward);
   }
@@ -150,10 +159,13 @@ class _LessonScreenState extends State<LessonScreen> {
     final s = _session!;
     final before = s.hearts;
     FocusScope.of(context).unfocus();
+    final sounds = ServicesScope.of(context).sounds;
     if (v == Verdict.incorrect) {
       HapticFeedback.mediumImpact();
+      sounds.play(Sfx.incorrect);
     } else {
       HapticFeedback.lightImpact();
+      sounds.play(Sfx.correct);
     }
     s.submit(v);
     _heartLostThisTurn = s.hearts < before;
@@ -310,11 +322,11 @@ class _LessonScreenState extends State<LessonScreen> {
                               BuildSentenceExercise(:final prompt) => prompt,
                               MatchPairsExercise() => '',
                             },
-                            mood: verdict == null
-                                ? MascotMood.thinking
+                            state: verdict == null
+                                ? CharacterState.curious
                                 : verdict == Verdict.incorrect
-                                ? MascotMood.confused
-                                : MascotMood.happy,
+                                ? CharacterState.confused
+                                : CharacterState.happy,
                           ),
                           const SizedBox(height: Space.lg),
                         ],
@@ -415,17 +427,19 @@ class _LessonScreenState extends State<LessonScreen> {
 
 /// Mascot "speaking" the prompt in a bubble.
 class _PromptRow extends StatelessWidget {
-  const _PromptRow({required this.prompt, required this.mood});
+  const _PromptRow({required this.prompt, required this.state});
 
   final String prompt;
-  final MascotMood mood;
+
+  /// Driven by the real verdict: curious (waiting) -> happy / confused.
+  final CharacterState state;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Mascot(mood: mood, size: 100),
+        CharacterAvatar(character: CastMember.spark, state: state, size: 100),
         const SizedBox(width: Space.xs),
         Flexible(
           child: Padding(

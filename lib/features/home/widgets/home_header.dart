@@ -10,11 +10,30 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/progress.dart';
+import '../../../app/app_services.dart';
+import '../../../core/motion/motion.dart';
+import '../../companion/companion_lines.dart';
 import '../../mascot/mascot.dart';
 
-/// Indigo hero: stats, personalised greeting, mascot and level ring.
-class HomeHeader extends StatelessWidget {
+/// Indigo hero: stats, personalised greeting, and Spark — who reacts to
+/// real progress (XP just earned, streak, returning after a break, thirsty
+/// words) and answers taps with tips.
+class HomeHeader extends StatefulWidget {
   const HomeHeader({super.key});
+
+  @override
+  State<HomeHeader> createState() => _HomeHeaderState();
+}
+
+class _HomeHeaderState extends State<HomeHeader> {
+  int? _seenXp;
+  int _xpGain = 0;
+  int _tip = -1;
+
+  void _onSparkTap() => setState(() {
+    _tip = (_tip + 1) % SparkLines.tips.length;
+    _xpGain = 0;
+  });
 
   static String _partOfDay(int hour) => hour < 12
       ? 'Good morning'
@@ -28,16 +47,25 @@ class HomeHeader extends StatelessWidget {
     final p = app.progress;
     final level = app.level;
     final hour = app.now.hour;
-    final mood = p.completedNodeIds.isEmpty
-        ? MascotMood.welcome
-        : app.practicedToday
-        ? MascotMood.happy
-        : MascotMood.encouraging;
-    final message = p.completedNodeIds.isEmpty
-        ? 'Your first lesson takes 3 minutes!'
-        : app.practicedToday
-        ? 'Streak safe today. Keep going?'
-        : 'A quick lesson keeps your streak alive.';
+    // React to XP earned while the learner was in a lesson/scene/review.
+    if (_seenXp != null && p.totalXp > _seenXp!) {
+      _xpGain = p.totalXp - _seenXp!;
+      _tip = -1;
+    }
+    _seenXp = p.totalXp;
+    final line = _tip >= 0
+        ? SparkLines.tips[_tip]
+        : SparkLines.greeting(
+            p: p,
+            today: app.today,
+            hour: hour,
+            thirstyWords: app.wordsNeedingWater.length,
+            questsDone: app.quests.every((q) => q.done),
+            xpGainedSinceLastVisit: _xpGain,
+          );
+    final message = line.en;
+    final native = line.native(app.native);
+    final sounds = ServicesScope.of(context).sounds;
 
     return Container(
       decoration: const BoxDecoration(
@@ -75,6 +103,20 @@ class HomeHeader extends StatelessWidget {
                     background: AppColors.indigoRaised,
                   ),
                   const Spacer(),
+                  ListenableBuilder(
+                    listenable: sounds,
+                    builder: (context, _) => IconButton(
+                      key: const ValueKey('home_sound_toggle'),
+                      tooltip: sounds.enabled ? 'Sound on' : 'Sound off',
+                      onPressed: () => sounds.setEnabled(!sounds.enabled),
+                      icon: Icon(
+                        sounds.enabled
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        color: AppColors.onIndigoMuted,
+                      ),
+                    ),
+                  ),
                   StatPill(
                     icon: BrandIconKind.heart,
                     value: p.hearts,
@@ -107,14 +149,48 @@ class HomeHeader extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: Space.xs),
-                        SpeechBubble(
-                          text: message,
-                          tail: BubbleTail.bottomRight,
-                          border: false,
-                          color: AppColors.indigoRaised,
-                          textColor: AppColors.ivory,
-                          style: AppType.bodySmall.copyWith(
-                            fontWeight: FontWeight.w700,
+                        AnimatedSwitcher(
+                          duration: Motion.of(context, Motion.card),
+                          switchInCurve: Motion.emphasized,
+                          transitionBuilder: (child, a) => FadeTransition(
+                            opacity: a,
+                            child: SlideTransition(
+                              position: Tween(
+                                begin: const Offset(0.04, 0),
+                                end: Offset.zero,
+                              ).animate(a),
+                              child: child,
+                            ),
+                          ),
+                          child: Column(
+                            key: ValueKey(message),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SpeechBubble(
+                                key: const ValueKey('spark_bubble'),
+                                text: message,
+                                tail: BubbleTail.bottomRight,
+                                border: false,
+                                color: AppColors.indigoRaised,
+                                textColor: AppColors.ivory,
+                                style: AppType.bodySmall.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (native != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: Space.xs,
+                                    top: 2,
+                                  ),
+                                  child: Text(
+                                    native,
+                                    style: AppType.caption.copyWith(
+                                      color: AppColors.onIndigoMuted,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: Space.md),
@@ -163,7 +239,14 @@ class HomeHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: Space.xs),
-                  Mascot(mood: mood, size: 118),
+                  CharacterAvatar(
+                    key: const ValueKey('home_spark'),
+                    character: CastMember.spark,
+                    state: line.state,
+                    size: 118,
+                    onTap: _onSparkTap,
+                    semanticLabel: 'Spark says: $message. Tap for a tip.',
+                  ),
                 ],
               ),
             ),

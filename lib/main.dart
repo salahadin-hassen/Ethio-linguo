@@ -10,6 +10,7 @@ import 'data/repositories/conversation_repository.dart';
 import 'data/repositories/vocabulary_repository.dart';
 import 'services/analytics/analytics.dart';
 import 'services/audio/audio_services.dart';
+import 'services/audio/sound_effects.dart';
 import 'services/playback/media_playback.dart';
 import 'services/speech/speech_services.dart';
 import 'services/tutor/explanation_provider.dart';
@@ -50,6 +51,7 @@ Future<void> main() async {
     recorder: platformHasAudioIo
         ? PcmVoiceRecorder()
         : const UnavailableVoiceRecorder(),
+    sounds: await AssetSoundEffects.create(),
     clipPlayer: platformHasAudioIo
         ? PlatformAudioClipPlayer()
         : const SilentAudioClipPlayer(),

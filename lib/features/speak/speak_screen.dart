@@ -370,6 +370,9 @@ class _Session extends StatelessWidget {
   }
 }
 
+/// The Professor's stage: a large, expressive Professor whose state is
+/// derived from real session events, a status line, and a REAL mic level
+/// meter (shown only when the platform reports levels).
 class _StateBanner extends StatelessWidget {
   const _StateBanner({required this.c});
   final TutorSessionController c;
@@ -377,108 +380,174 @@ class _StateBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = c.native.englishName;
-    final (label, mood, color) = switch (c.state) {
-      TutorState.connecting => (
-        'Connecting…',
-        MascotMood.thinking,
-        AppColors.surfaceSunken,
-      ),
+    final (label, color) = switch (c.state) {
+      TutorState.connecting => ('Connecting…', AppColors.surfaceSunken),
       TutorState.listening => (
-        'Listening… speak English',
-        MascotMood.excited,
+        'I\'m listening — speak English',
         AppColors.coralTint,
       ),
       TutorState.recordingNative => (
-        'Recording your question in $lang…',
-        MascotMood.excited,
+        'Ask me in $lang — I\'m listening',
         AppColors.goldTint,
       ),
       TutorState.transcribing => (
         'Understanding your question…',
-        MascotMood.thinking,
         AppColors.goldTint,
       ),
-      TutorState.thinking => (
-        'The Professor is thinking…',
-        MascotMood.thinking,
-        AppColors.periwinkleTint,
-      ),
+      TutorState.thinking => ('Let me think…', AppColors.periwinkleTint),
       TutorState.speaking => (
-        'Speaking… tap to interrupt',
-        MascotMood.happy,
+        'Speaking — tap me to interrupt',
         AppColors.tealTint,
       ),
-      TutorState.error => (
-        'Something went wrong',
-        MascotMood.confused,
-        AppColors.coralTint,
-      ),
-      TutorState.ended => (
-        'Conversation ended',
-        MascotMood.celebrating,
-        AppColors.goldTint,
-      ),
-      _ => ('Your turn', MascotMood.encouraging, AppColors.surfaceSunken),
+      TutorState.error => ('Something went wrong', AppColors.coralTint),
+      TutorState.ended => ('Well done today!', AppColors.goldTint),
+      _ => switch (c.professorState) {
+        CharacterState.approving => (
+          'Excellent! Your turn again.',
+          AppColors.tealTint,
+        ),
+        CharacterState.correcting => (
+          'Almost — let\'s fix one thing.',
+          AppColors.goldTint,
+        ),
+        _ => ('Your turn', AppColors.surfaceSunken),
+      },
     };
+    final listeningNow =
+        c.state == TutorState.listening ||
+        c.state == TutorState.recordingNative;
     return Semantics(
       liveRegion: true,
       label: label,
-      child: InkWell(
-        onTap: c.state == TutorState.speaking ? c.interrupt : null,
-        child: AnimatedContainer(
-          duration: Motion.of(context, Motion.medium),
-          key: ValueKey('speak_state_${c.state.name}'),
-          color: color,
-          padding: const EdgeInsets.symmetric(
-            horizontal: Space.gutter,
-            vertical: Space.xs,
-          ),
-          child: Row(
-            children: [
-              Mascot(
-                character: CastMember.professor,
-                mood: mood,
-                size: 44,
-                semanticLabel: 'Professor',
+      child: AnimatedContainer(
+        duration: Motion.of(context, Motion.card),
+        curve: Motion.emphasized,
+        key: ValueKey('speak_state_${c.state.name}'),
+        color: color,
+        padding: const EdgeInsets.fromLTRB(
+          Space.sm,
+          Space.xs,
+          Space.sm,
+          Space.xs,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CharacterAvatar(
+              key: const ValueKey('speak_professor'),
+              character: CastMember.professor,
+              state: c.professorState,
+              speaking: c.state == TutorState.speaking,
+              size: 96,
+              onTap: c.state == TutorState.speaking ? c.interrupt : null,
+              semanticLabel: 'The Professor, ${c.professorState.name}',
+            ),
+            const SizedBox(width: Space.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnimatedSwitcher(
+                    duration: Motion.of(context, Motion.feedback),
+                    child: Text(
+                      label,
+                      key: ValueKey(label),
+                      style: AppType.label,
+                    ),
+                  ),
+                  if (c.message != null)
+                    Text(c.message!, style: AppType.caption),
+                  if (listeningNow)
+                    ValueListenableBuilder<double?>(
+                      valueListenable: c.level,
+                      builder: (context, v, _) => v == null
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.fiber_manual_record,
+                                    color: AppColors.coralInk,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text('Mic on', style: AppType.caption),
+                                ],
+                              ),
+                            )
+                          : _LevelMeter(level: v),
+                    ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      _ToggleChip(
+                        k: 'speak_live',
+                        icon: c.liveMode
+                            ? Icons.all_inclusive_rounded
+                            : Icons.touch_app_rounded,
+                        label: c.liveMode ? 'Live' : 'Manual',
+                        on: c.liveMode,
+                        onTap: c.micAvailable ? c.toggleLive : null,
+                        tooltip: 'Live: the mic opens automatically after each reply',
+                      ),
+                      _ToggleChip(
+                        k: 'speak_coach_voice',
+                        icon: c.speakCoaching
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        label: c.native.code.toUpperCase(),
+                        on: c.speakCoaching,
+                        onTap: c.nativeVoiceAvailable
+                            ? c.toggleCoachVoice
+                            : null,
+                        tooltip:
+                            'Speak explanations in ${c.native.englishName}',
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: Space.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: AppType.label),
-                    if (c.message != null)
-                      Text(c.message!, style: AppType.caption),
-                  ],
-                ),
-              ),
-              _ToggleChip(
-                k: 'speak_live',
-                icon: c.liveMode
-                    ? Icons.all_inclusive_rounded
-                    : Icons.touch_app_rounded,
-                label: c.liveMode ? 'Live' : 'Manual',
-                on: c.liveMode,
-                onTap: c.micAvailable ? c.toggleLive : null,
-                tooltip: 'Live: the mic opens automatically after each reply',
-              ),
-              const SizedBox(width: 4),
-              _ToggleChip(
-                k: 'speak_coach_voice',
-                icon: c.speakCoaching
-                    ? Icons.volume_up_rounded
-                    : Icons.volume_off_rounded,
-                label: c.native.code.toUpperCase(),
-                on: c.speakCoaching,
-                onTap: c.nativeVoiceAvailable ? c.toggleCoachVoice : null,
-                tooltip: 'Speak explanations in ${c.native.englishName}',
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+/// Five bars driven by the real input level.
+class _LevelMeter extends StatelessWidget {
+  const _LevelMeter({required this.level});
+  final double level;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Semantics(
+      label: 'Microphone level ${(level * 100).round()} percent',
+      excludeSemantics: true,
+      child: Row(
+        key: const ValueKey('speak_level_meter'),
+        children: [
+          for (var i = 0; i < 5; i++)
+            AnimatedContainer(
+              duration: Motion.of(context, Motion.press),
+              margin: const EdgeInsets.only(right: 3),
+              width: 6,
+              height: 6 + 18 * (level - i * 0.15).clamp(0.0, 0.4) / 0.4,
+              decoration: BoxDecoration(
+                color: level > i * 0.18
+                    ? AppColors.coral
+                    : AppColors.outlineStrong,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _ToggleChip extends StatelessWidget {

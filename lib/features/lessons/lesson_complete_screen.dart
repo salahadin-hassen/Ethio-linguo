@@ -52,6 +52,7 @@ class LessonCompleteScreen extends StatelessWidget {
                               ? MascotMood.excited
                               : MascotMood.celebrating,
                           size: 190,
+                          reactOnMount: true,
                         ),
                         const SizedBox(height: Space.sm),
                         Entrance(

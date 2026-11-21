@@ -10,6 +10,8 @@ import '../../data/models/conversation.dart';
 import '../../data/models/language.dart';
 import '../../data/models/vocabulary.dart';
 import '../../services/analytics/analytics.dart';
+import '../../services/audio/sound_effects.dart';
+import '../mascot/characters.dart';
 import '../../services/speech/speech_services.dart';
 import '../../services/tutor/tutor_engine.dart';
 
@@ -71,6 +73,49 @@ class TutorSessionController extends ChangeNotifier {
   bool showTranslations = true;
 
   final Set<String> savedCorrections = {};
+
+  /// REAL microphone level (0..1) while listening/recording; null when the
+  /// platform reports none (then the UI shows no meter rather than a fake).
+  final ValueNotifier<double?> level = ValueNotifier(null);
+  StreamSubscription<double>? _levelSub;
+
+  /// The Professor's expression, derived from real session events
+  /// (docs/INTERACTION_STATE_MAP.md §Professor).
+  CharacterState get professorState => switch (state) {
+    TutorState.connecting => CharacterState.greeting,
+    TutorState.listening ||
+    TutorState.recordingNative => CharacterState.listening,
+    TutorState.transcribing => CharacterState.transcribing,
+    TutorState.thinking => CharacterState.thinking,
+    TutorState.speaking => CharacterState.speaking,
+    TutorState.error => CharacterState.confused,
+    TutorState.ended => CharacterState.celebrating,
+    TutorState.unavailable => CharacterState.sleeping,
+    TutorState.idle => _verdictState,
+  };
+
+  /// After the Professor answers: approving if the learner got it right,
+  /// correcting if there is a fix to practise, otherwise attentive idle.
+  CharacterState get _verdictState {
+    TutorTurn? learner;
+    for (final t in turns.reversed) {
+      if (t.speaker == Speaker.learner) {
+        learner = t;
+        break;
+      }
+    }
+    if (learner == null) return CharacterState.idle;
+    final f = learner.feedback;
+    final rep = learner.repeatScore;
+    if (f?.kind == FeedbackKind.great || (rep?.passed ?? false)) {
+      return CharacterState.approving;
+    }
+    if (f != null || (rep != null && !rep.passed)) {
+      return CharacterState.correcting;
+    }
+    return CharacterState.idle;
+  }
+
   int _failures = 0;
   bool _disposed = false;
   RecognizedSpeech? _last;
@@ -93,6 +138,11 @@ class TutorSessionController extends ChangeNotifier {
   TutorTask? get currentTask => lastTutorTurn?.task;
 
   void _set(TutorState s, {String? msg}) {
+    if (s != TutorState.listening && s != TutorState.recordingNative) {
+      level.value = null; // meter only while the mic is really open
+      unawaited(_levelSub?.cancel());
+      _levelSub = null;
+    }
     state = s;
     message = msg;
     if (!_disposed) notifyListeners();
@@ -155,6 +205,7 @@ class TutorSessionController extends ChangeNotifier {
     _set(TutorState.listening);
     await _s.speechIn.listen(
       localeId: Languages.en.speechLocale!,
+      onLevel: (v) => level.value = v,
       onResult: (r) {
         _last = r;
         partial = r.text;
@@ -206,6 +257,7 @@ class TutorSessionController extends ChangeNotifier {
     await _stopVoices();
     await _s.recorder.start();
     _set(TutorState.recordingNative);
+    _levelSub = _s.recorder.levels.listen((v) => level.value = v);
   }
 
   Future<void> stopNativeQuestion() async {
@@ -331,6 +383,13 @@ class TutorSessionController extends ChangeNotifier {
         feedback: r.feedback,
         usedExpressions: r.usedExpressions,
       );
+    }
+    if (utterance != null && language == 'en') {
+      final last = turns.last;
+      final good =
+          last.feedback?.kind == FeedbackKind.great ||
+          (last.repeatScore?.passed ?? false);
+      _s.sounds.play(good ? Sfx.correct : Sfx.tap);
     }
     final tutorTurn = TutorTurn(
       speaker: Speaker.tutor,
@@ -463,6 +522,8 @@ class TutorSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    unawaited(_levelSub?.cancel());
+    level.dispose();
     unawaited(_s.speechIn.cancel());
     unawaited(_s.recorder.cancel());
     unawaited(_stopVoices());

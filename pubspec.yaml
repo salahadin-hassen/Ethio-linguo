@@ -32,6 +32,8 @@ flutter:
     - assets/content/
     - assets/content/bus_stop_hello/
     - assets/content/bus_stop_hello/translations/
+    # Original synthesized UI sounds (tool/sfx/make_sfx.py)
+    - assets/sfx/
     # Human cast artwork (see lib/features/mascot/characters.dart)
     - assets/characters/professor/
     - assets/characters/spark/

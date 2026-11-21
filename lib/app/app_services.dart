@@ -6,6 +6,7 @@ import '../data/repositories/conversation_repository.dart';
 import '../data/repositories/vocabulary_repository.dart';
 import '../services/analytics/analytics.dart';
 import '../services/audio/audio_services.dart';
+import '../services/audio/sound_effects.dart';
 import '../services/playback/media_playback.dart';
 import '../services/speech/speech_services.dart';
 import '../services/tutor/explanation_provider.dart';
@@ -30,7 +31,8 @@ class AppServices {
     this.nativeVoice = const UnavailableNativeVoice(),
     this.recorder = const UnavailableVoiceRecorder(),
     this.clipPlayer = const SilentAudioClipPlayer(),
-  });
+    SoundEffects? sounds,
+  }) : sounds = sounds ?? SilentSoundEffects();
 
   /// Offline-safe defaults for tests and previews: no plugins, no network.
   factory AppServices.inMemory({
@@ -45,7 +47,9 @@ class AppServices {
     NativeVoice? nativeVoice,
     VoiceRecorder? recorder,
     AudioClipPlayer? clipPlayer,
+    SoundEffects? sounds,
   }) => AppServices(
+    sounds: sounds,
     nativeVoice: nativeVoice ?? const UnavailableNativeVoice(),
     recorder: recorder ?? const UnavailableVoiceRecorder(),
     clipPlayer: clipPlayer ?? const SilentAudioClipPlayer(),
@@ -79,6 +83,9 @@ class AppServices {
   final NativeVoice nativeVoice;
   final VoiceRecorder recorder;
   final AudioClipPlayer clipPlayer;
+
+  /// UI sound effects (optional, user-toggleable).
+  final SoundEffects sounds;
 }
 
 class ServicesScope extends InheritedWidget {
