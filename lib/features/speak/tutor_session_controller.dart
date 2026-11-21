@@ -139,6 +139,10 @@ class TutorSessionController extends ChangeNotifier {
   /// How long to wait, after the English line, for the coaching audio
   /// before moving on (the text stays on screen with a replay button).
   static const coachAudioPatience = Duration(seconds: 8);
+
+  /// How long to wait for the natural (relay) English voice before speaking
+  /// with the phone's own voice instead. Never both for the same line.
+  static const englishVoicePatience = Duration(milliseconds: 3500);
   RecognizedSpeech? _last;
   ActivityReward? reward;
 
@@ -444,12 +448,7 @@ class TutorSessionController extends ChangeNotifier {
           early = TutorTurn(speaker: Speaker.tutor, text: text);
           turns.add(early!);
           _set(TutorState.speaking);
-          if (englishVoice) {
-            english = _s.speechOut.speak(
-              text,
-              localeId: Languages.en.speechLocale!,
-            );
-          }
+          english = _speakEnglish(text, epoch);
         },
       );
     } on TutorException catch (e) {
@@ -503,12 +502,7 @@ class TutorSessionController extends ChangeNotifier {
     } else {
       _set(TutorState.speaking);
     }
-    if (english == null && englishVoice) {
-      english = _s.speechOut.speak(
-        r.replyText,
-        localeId: Languages.en.speechLocale!,
-      );
-    }
+    english ??= _speakEnglish(r.replyText, epoch);
     await english;
     if (_disposed || epoch != _epoch || state != TutorState.speaking) return;
     if (coachClip != null) {
@@ -551,16 +545,43 @@ class TutorSessionController extends ChangeNotifier {
 
   /// Native-language audio for [text], or null if it can't be had (the line
   /// stays readable on screen; voice is a bonus, never a blocker).
-  Future<SpeechClip?> _fetchClip(String text) async {
+  Future<SpeechClip?> _fetchClip(String text, {String? language}) async {
     try {
-      return await _s.nativeVoice.synthesize(text, language: native.code);
+      return await _s.nativeVoice.synthesize(
+        text,
+        language: language ?? native.code,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  Future<void> _playClip(SpeechClip clip, int epoch) async {
-    if (_disposed || !speakCoaching || epoch != _epoch) return;
+  /// The Professor's English line: his natural voice from the relay when it
+  /// arrives within [englishVoicePatience], else the phone's voice. A late
+  /// relay clip is dropped, so the line is never spoken twice.
+  Future<void> _speakEnglish(String text, int epoch) async {
+    if (_s.nativeVoice.speaksEnglish) {
+      final clip = await _fetchClip(
+        text,
+        language: 'en',
+      ).timeout(englishVoicePatience, onTimeout: () => null);
+      if (_disposed || epoch != _epoch) return;
+      if (clip != null) {
+        await _playClip(clip, epoch, coaching: false);
+        return;
+      }
+    }
+    if (englishVoice && !_disposed && epoch == _epoch) {
+      await _s.speechOut.speak(text, localeId: Languages.en.speechLocale!);
+    }
+  }
+
+  Future<void> _playClip(
+    SpeechClip clip,
+    int epoch, {
+    bool coaching = true,
+  }) async {
+    if (_disposed || epoch != _epoch || (coaching && !speakCoaching)) return;
     final env = clip.envelope;
     // Real position from the player, interpolated between its (coarse,
     // ~200 ms) position events so the jaw follows 50 ms envelope frames.

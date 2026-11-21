@@ -290,12 +290,20 @@ class RelayNativeVoice implements NativeVoice {
       final res = await _client
           .get(baseUrl.resolve('/v1/health'))
           .timeout(const Duration(seconds: 6));
-      return res.statusCode == 200 &&
-          (jsonDecode(res.body) as Map)['speech'] != null;
+      if (res.statusCode != 200) return false;
+      final speech = (jsonDecode(res.body) as Map)['speech'];
+      _speaksEnglish =
+          speech is Map &&
+          (speech['synthesize'] as List?)?.contains('en') == true;
+      return speech != null;
     } catch (_) {
       return false;
     }
   }
+
+  bool _speaksEnglish = false;
+  @override
+  bool get speaksEnglish => _speaksEnglish;
 
   Future<Map<String, Object?>> _post(
     Uri url,

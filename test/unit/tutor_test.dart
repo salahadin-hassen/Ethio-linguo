@@ -475,6 +475,36 @@ void main() {
       },
     );
 
+    test('natural English voice: relay clip plays instead of the phone '
+        'voice; on failure the phone voice speaks the line once', () async {
+      final voice = FakeNativeVoice()..english = true;
+      final player = FakeClipPlayer();
+      final (c, _, _, synth) = await make(
+        FakeLiveTutor()..streams = true,
+        voice: voice,
+        player: player,
+      );
+      await c.start();
+      expect(
+        voice.spoken.first,
+        'en:Hey! Long time no see! How have you been?',
+      );
+      expect(synth.spoken, isEmpty, reason: 'no double voice');
+      expect(player.plays, 2, reason: 'English clip, then coaching');
+
+      final failing = FakeNativeVoice()
+        ..english = true
+        ..englishFails = true;
+      final (c2, _, _, synth2) = await make(
+        FakeLiveTutor()..streams = true,
+        voice: failing,
+      );
+      await c2.start();
+      expect(synth2.spoken, ['Hey! Long time no see! How have you been?']);
+      expect(failing.spoken.where((s) => s.startsWith('en:')), isEmpty);
+      expect(failing.spoken.single, startsWith('am:'), reason: 'coaching kept');
+    });
+
     test('streamed reply: spoken as soon as it arrives, once, then completed '
         'with coaching and task', () async {
       final tutor = FakeLiveTutor()..streams = true;

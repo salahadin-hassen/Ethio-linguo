@@ -170,6 +170,11 @@ class AmplitudeEnvelope {
 /// speaking coaching lines and transcribing learners' questions.
 abstract interface class NativeVoice {
   Future<bool> available();
+
+  /// True when the voice service can also speak English in the Professor's
+  /// own (natural) voice: `synthesize(text, language: 'en')`. Known after
+  /// [available]. The app falls back to the phone's voice when false or slow.
+  bool get speaksEnglish;
   Future<SpeechClip> synthesize(String text, {required String language});
   Future<String> transcribe(List<int> wav, {required String language});
 }
@@ -178,6 +183,8 @@ class UnavailableNativeVoice implements NativeVoice {
   const UnavailableNativeVoice();
   @override
   Future<bool> available() async => false;
+  @override
+  bool get speaksEnglish => false;
   @override
   Future<SpeechClip> synthesize(String text, {required String language}) =>
       throw const TutorException(

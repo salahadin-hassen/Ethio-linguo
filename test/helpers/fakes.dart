@@ -154,10 +154,21 @@ class FakeNativeVoice implements NativeVoice {
   final spoken = <String>[];
   String transcript = 'catch up ማለት ምን ማለት ነው?';
   AmplitudeEnvelope? envelope;
+
+  /// Simulates the relay's natural English voice (off by default).
+  bool english = false;
+
+  /// English synthesis fails (e.g. provider rate limit) when set.
+  bool englishFails = false;
+  @override
+  bool get speaksEnglish => english;
   @override
   Future<bool> available() async => true;
   @override
   Future<SpeechClip> synthesize(String text, {required String language}) async {
+    if (language == 'en' && englishFails) {
+      throw const TutorException(TutorErrorCode.rateLimited, 'busy');
+    }
     spoken.add('$language:$text');
     return SpeechClip(const [0, 1, 2], 'audio/wav', envelope: envelope);
   }

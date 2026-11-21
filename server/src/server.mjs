@@ -4,6 +4,7 @@ import { ContractError, parseTurnRequest } from "./contract.mjs";
 import { createAddisProvider } from "./providers/addis.mjs";
 import { createAddisSpeech } from "./providers/addis_speech.mjs";
 import { createAnthropicProvider } from "./providers/anthropic.mjs";
+import { createGeminiSpeech } from "./providers/gemini_speech.mjs";
 
 async function readBody(req, max) {
   const chunks = [];
@@ -19,7 +20,7 @@ async function readBody(req, max) {
 // Stateless tutor relay. Privacy: tutor turns carry TEXT only. The optional
 // /v1/speech/transcribe route forwards a learner's native-language question
 // audio to the speech provider once; nothing is stored or logged.
-export function createServer({ provider, speech = null, allowOrigin = process.env.ALLOW_ORIGIN || "*" } = {}) {
+export function createServer({ provider, speech = null, english = null, allowOrigin = process.env.ALLOW_ORIGIN || "*" } = {}) {
   return http.createServer(async (req, res) => {
     const send = (status, body) => {
       res.writeHead(status, {
@@ -39,7 +40,7 @@ export function createServer({ provider, speech = null, allowOrigin = process.en
           model: provider?.model ?? null,
           contract: 1,
           streaming: true, // POST /v1/tutor/turn/stream (NDJSON)
-          speech: speech ? { synthesize: ["am", "om"], transcribe: ["am", "om", "en"] } : null,
+          speech: speech ? { synthesize: english ? ["am", "om", "en"] : ["am", "om"], transcribe: ["am", "om", "en"] } : null,
         });
       }
       if (req.method === "POST" && (req.url === "/v1/tutor/turn" || req.url === "/v1/tutor/turn/stream")) {
@@ -79,6 +80,8 @@ export function createServer({ provider, speech = null, allowOrigin = process.en
           const out = await provider.turn(turn, {
             onReply: (text) => {
               replyMs = Date.now() - started;
+              // Start the Professor's English voice now; the app asks for it next.
+              if (body.voice === true && english) english.prewarm(text);
               event({ type: "reply", text });
             },
           });
@@ -95,7 +98,9 @@ export function createServer({ provider, speech = null, allowOrigin = process.en
       if (req.method === "POST" && req.url === "/v1/speech/synthesize") {
         if (!speech) throw new ContractError("unavailable", "No speech provider configured.", 503);
         const body = JSON.parse((await readBody(req, 8_000)).toString("utf8") || "{}");
-        const clip = await speech.synthesize(String(body.text ?? ""), body.language);
+        const clip = body.language === "en"
+          ? await (english ?? { synthesize: () => { throw new ContractError("bad_request", "No English voice configured."); } }).synthesize(String(body.text ?? ""))
+          : await speech.synthesize(String(body.text ?? ""), body.language);
         // no content logged: language, duration and envelope size only
         console.log(`synth ok lang=${body.language} s=${clip.durationSeconds ?? "?"} envelopeFrames=${clip.envelope?.values?.length ?? 0}`);
         return send(200, clip);
@@ -132,5 +137,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!provider) console.warn(`No credentials for provider "${choice}": /v1/health reports ok=false and turns return 503.`);
   const port = Number(process.env.PORT || 8787);
   const speech = process.env.ADDIS_API_KEY ? createAddisSpeech() : null;
-  createServer({ provider, speech }).listen(port, "0.0.0.0", () => console.log(`tutor relay on :${port} provider=${provider?.name ?? "none"} model=${provider?.model ?? "-"}`));
+  const english = process.env.GEMINI_API_KEY ? createGeminiSpeech() : null;
+  createServer({ provider, speech, english }).listen(port, "0.0.0.0", () => console.log(`tutor relay on :${port} provider=${provider?.name ?? "none"} model=${provider?.model ?? "-"}`));
 }
