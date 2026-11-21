@@ -35,7 +35,7 @@ void main() {
                           borderRadius: BorderRadius.circular(24),
                         ),
                         padding: const EdgeInsets.all(12),
-                        child: Mascot(mood: m, size: 300, animate: false),
+                        child: Mascot(mood: m, size: 220, animate: false),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -68,6 +68,7 @@ void main() {
         ),
       ),
     );
+    await precacheCast(tester);
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(Scaffold),

@@ -15,8 +15,13 @@ import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
 import '../helpers/lesson_driver.dart';
 
-Future<void> shot(WidgetTester tester, String name) =>
-    expectLater(find.byType(MaterialApp), matchesGoldenFile('out/$name.png'));
+Future<void> shot(WidgetTester tester, String name) async {
+  await precacheCast(tester);
+  await expectLater(
+    find.byType(MaterialApp),
+    matchesGoldenFile('out/$name.png'),
+  );
+}
 
 void main() {
   setUpAll(loadAppFonts);

@@ -198,7 +198,13 @@ class _Intro extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(Space.gutter),
       children: [
-        const Center(child: Mascot(mood: MascotMood.welcome, size: 110)),
+        const Center(
+          child: Mascot(
+            character: CastMember.professor,
+            mood: MascotMood.welcome,
+            size: 110,
+          ),
+        ),
         const SizedBox(height: Space.md),
         Text(
           c?.hasLesson == true
@@ -429,7 +435,12 @@ class _StateBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Mascot(mood: mood, size: 44, semanticLabel: 'Professor'),
+              Mascot(
+                character: CastMember.professor,
+                mood: mood,
+                size: 44,
+                semanticLabel: 'Professor',
+              ),
               const SizedBox(width: Space.sm),
               Expanded(
                 child: Column(
@@ -1003,7 +1014,13 @@ class _Unavailable extends StatelessWidget {
       key: const ValueKey('speak_unavailable'),
       padding: const EdgeInsets.all(Space.gutter),
       children: [
-        const Center(child: Mascot(mood: MascotMood.sleeping, size: 130)),
+        const Center(
+          child: Mascot(
+            character: CastMember.professor,
+            mood: MascotMood.sleeping,
+            size: 130,
+          ),
+        ),
         const SizedBox(height: Space.sm),
         LabelWithSupport(
           S.professorOffline,

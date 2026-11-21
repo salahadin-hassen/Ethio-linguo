@@ -4,5 +4,5 @@ abstract final class AppConfig {
   static const workingTitle = 'Ethio Linguo';
 
   /// Placeholder mascot name (see docs/design/MASCOT.md).
-  static const mascotName = 'Gela';
+  static const mascotName = 'Spark';
 }
