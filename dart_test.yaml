@@ -3,3 +3,6 @@ tags:
     # Pixel goldens depend on the host rasterizer; run explicitly with:
     #   flutter test test/screenshots --run-skipped --update-goldens
     skip: "Screenshot generation - run explicitly (see README)"
+  live:
+    # Calls a real tutor relay; run with: flutter test test/live --run-skipped
+    skip: "Live network test - run explicitly"
