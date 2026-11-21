@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../core/components/entrance.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/theme/app_spacing.dart';
 import 'widgets/continue_card.dart';
 import 'widgets/daily_quests_card.dart';
+import 'widgets/featured_media_card.dart';
 import 'widgets/garden_entry_card.dart';
 import 'widgets/home_header.dart';
 import 'widgets/path_preview_card.dart';
+import 'widgets/quick_actions.dart';
 
 /// Dashboard: the learner's daily starting point.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.onOpenTab});
 
-  final ValueChanged<int> onOpenTab;
+  final ValueChanged<HomeTab> onOpenTab;
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +34,21 @@ class HomeScreen extends StatelessWidget {
             children: [
               const Entrance(child: ContinueLearningCard()),
               const SizedBox(height: Space.md),
+              const Entrance(
+                delay: Duration(milliseconds: 40),
+                child: FeaturedMediaCard(),
+              ),
+              const SizedBox(height: Space.md),
+              Entrance(
+                delay: const Duration(milliseconds: 60),
+                child: QuickActions(onOpenTab: onOpenTab),
+              ),
+              const SizedBox(height: Space.md),
               Entrance(
                 delay: const Duration(milliseconds: 80),
-                child: GardenEntryCard(onOpen: () => onOpenTab(2)),
+                child: GardenEntryCard(
+                  onOpen: () => Navigator.pushNamed(context, AppRoutes.garden),
+                ),
               ),
               const SizedBox(height: Space.md),
               const Entrance(
@@ -43,7 +58,9 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: Space.md),
               Entrance(
                 delay: const Duration(milliseconds: 200),
-                child: PathPreviewCard(onSeeAll: () => onOpenTab(1)),
+                child: PathPreviewCard(
+                  onSeeAll: () => onOpenTab(HomeTab.learn),
+                ),
               ),
             ],
           ),

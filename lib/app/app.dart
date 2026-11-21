@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/navigation/app_routes.dart';
 import '../core/theme/app_theme.dart';
+import '../features/achievements/achievements_screen.dart';
 import '../features/discover/discover_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/language_selection/language_selection_screen.dart';
@@ -11,8 +12,10 @@ import '../features/lessons/lesson_screen.dart';
 import '../features/media_lesson/media_lesson_screen.dart';
 import '../features/my_words/my_words_screen.dart';
 import '../features/onboarding/welcome_screen.dart';
+import '../features/revision/revision_screen.dart';
+import '../features/word_garden/word_garden_screen.dart';
 import '../features/speak/speak_screen.dart';
-import '../services/tutor/tutor_service.dart';
+import '../data/models/conversation.dart';
 import 'app_config.dart';
 import 'app_controller.dart';
 import 'app_scope.dart';
@@ -81,6 +84,12 @@ class LearningApp extends StatelessWidget {
         b = (_) => SpeakScreen(tutorContext: ctx is TutorContext ? ctx : null);
       case AppRoutes.myWords:
         b = (_) => const MyWordsScreen();
+      case AppRoutes.revision:
+        b = (_) => const RevisionScreen();
+      case AppRoutes.garden:
+        b = (_) => const Scaffold(body: SafeArea(child: WordGardenScreen()));
+      case AppRoutes.achievements:
+        b = (_) => const Scaffold(body: SafeArea(child: AchievementsScreen()));
       default:
         return null;
     }

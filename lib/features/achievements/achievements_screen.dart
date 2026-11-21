@@ -20,6 +20,9 @@ class AchievementsScreen extends StatelessWidget {
     AchievementId.gardener: (BrandIconKind.leaf, AppColors.teal),
     AchievementId.firstBloom: (BrandIconKind.heart, AppColors.periwinkle),
     AchievementId.checkpoint: (BrandIconKind.crown, AppColors.gold),
+    AchievementId.sceneStarter: (BrandIconKind.star, AppColors.coral),
+    AchievementId.wordKeeper: (BrandIconKind.leaf, AppColors.gold),
+    AchievementId.firstConversation: (BrandIconKind.heart, AppColors.teal),
   };
 
   @override

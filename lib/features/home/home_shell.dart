@@ -4,12 +4,14 @@ import '../../core/components/brand_icons.dart';
 import '../../core/motion/motion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../achievements/achievements_screen.dart';
+import '../../core/navigation/app_routes.dart';
+import '../discover/discover_screen.dart';
 import '../learning_path/learning_path_screen.dart';
-import '../word_garden/word_garden_screen.dart';
+import '../my_words/my_words_screen.dart';
+import '../speak/speak_screen.dart';
 import 'home_screen.dart';
 
-/// Root after onboarding: four tabs with a custom bottom navigation bar.
+/// Root after onboarding: five product areas (see [HomeTab]).
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, this.initialTab = 0});
 
@@ -23,6 +25,7 @@ class _HomeShellState extends State<HomeShell> {
   late int _tab = widget.initialTab;
 
   void _go(int i) => setState(() => _tab = i);
+  void _goTab(HomeTab t) => _go(t.index);
 
   @override
   Widget build(BuildContext context) {
@@ -30,10 +33,14 @@ class _HomeShellState extends State<HomeShell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          HomeScreen(onOpenTab: _go),
+          HomeScreen(onOpenTab: _goTab),
           const LearningPathScreen(),
-          const WordGardenScreen(),
-          const AchievementsScreen(),
+          const DiscoverScreen(),
+          // Speak is built lazily so no session starts until it is opened.
+          _tab == HomeTab.speak.index
+              ? const SpeakScreen()
+              : const SizedBox.shrink(),
+          const MyWordsScreen(),
         ],
       ),
       bottomNavigationBar: _BottomNav(index: _tab, onTap: _go),
@@ -47,11 +54,15 @@ class _BottomNav extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTap;
 
-  static const _items = [
-    (Icons.home_rounded, null, 'Home'),
-    (Icons.route_rounded, null, 'Path'),
-    (null, BrandIconKind.leaf, 'Garden'),
-    (Icons.emoji_events_rounded, null, 'Badges'),
+  static final _items = [
+    for (final t in HomeTab.values)
+      switch (t) {
+        HomeTab.home => (Icons.home_rounded, null, t.label),
+        HomeTab.learn => (Icons.route_rounded, null, t.label),
+        HomeTab.discover => (Icons.smart_display_rounded, null, t.label),
+        HomeTab.speak => (Icons.record_voice_over_rounded, null, t.label),
+        HomeTab.myWords => (null, BrandIconKind.leaf, t.label),
+      },
   ];
 
   @override
@@ -84,7 +95,7 @@ class _BottomNav extends StatelessWidget {
                             duration: Motion.of(context, Motion.medium),
                             curve: Motion.emphasized,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
+                              horizontal: 12,
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
@@ -104,15 +115,19 @@ class _BottomNav extends StatelessWidget {
                                   ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            label,
-                            style: AppType.caption.copyWith(
-                              color: i == index
-                                  ? AppColors.coralInk
-                                  : AppColors.textMuted,
-                              fontWeight: i == index
-                                  ? FontWeight.w900
-                                  : FontWeight.w700,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              style: AppType.caption.copyWith(
+                                color: i == index
+                                    ? AppColors.coralInk
+                                    : AppColors.textMuted,
+                                fontWeight: i == index
+                                    ? FontWeight.w900
+                                    : FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],

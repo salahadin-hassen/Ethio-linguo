@@ -23,12 +23,15 @@ class LanguageSelectionScreen extends StatefulWidget {
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   NativeLanguage? _native;
   TargetLanguage _target = TargetLanguage.english;
+  LearnerLevel _level = LearnerLevel.beginner;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _native = AppScope.read(context).progress.native;
+    final p = AppScope.read(context).progress;
+    _native = p.native;
+    _level = p.level;
   }
 
   static const _accents = {
@@ -40,7 +43,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     final native = _native;
     if (native == null || _saving) return;
     setState(() => _saving = true);
-    await AppScope.read(context).chooseLanguages(native, _target);
+    await AppScope.read(context)
+        .chooseLanguages(native, _target, level: _level);
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
   }
@@ -138,6 +142,16 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                     ),
                     const SizedBox(height: Space.sm),
                   ],
+                  const SizedBox(height: Space.md),
+                  _Label('My English level', AppColors.tealInk),
+                  for (final level in LearnerLevel.values) ...[
+                    _LevelOption(
+                      level: level,
+                      selected: _level == level,
+                      onTap: () => setState(() => _level = level),
+                    ),
+                    const SizedBox(height: Space.xs),
+                  ],
                 ],
               ),
             ),
@@ -178,6 +192,68 @@ class _Label extends StatelessWidget {
       child: Text(
         text.toUpperCase(),
         style: AppType.overline.copyWith(color: color),
+      ),
+    ),
+  );
+}
+
+class _LevelOption extends StatelessWidget {
+  const _LevelOption({
+    required this.level,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final LearnerLevel level;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    button: true,
+    child: InkWell(
+      key: ValueKey('level_${level.name}'),
+      borderRadius: Radii.lgAll,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.md,
+          vertical: Space.sm,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.tealTint : AppColors.surface,
+          borderRadius: Radii.lgAll,
+          border: Border.all(
+            color: selected ? AppColors.teal : AppColors.outline,
+            width: selected ? 2.5 : 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(level.title, style: AppType.titleSmall),
+                  Text(
+                    level.subtitle,
+                    style: AppType.bodySmall.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              color: selected ? AppColors.tealInk : AppColors.textMuted,
+            ),
+          ],
+        ),
       ),
     ),
   );
