@@ -4,6 +4,8 @@
 @Tags(['screenshots'])
 library;
 
+import 'package:ethio_linguo/core/navigation/app_routes.dart';
+
 import 'package:ethio_linguo/app/app.dart';
 import 'package:ethio_linguo/data/models/language.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +50,7 @@ void main() {
 
   testWidgets('06 learning path', (t) async {
     await pumpApp(t, progress: midJourney());
-    await t.tap(find.byKey(const ValueKey('nav_Path')));
+    await t.tap(find.byKey(const ValueKey('nav_Learn')));
     await t.pumpAndSettle();
     await shot(t, '06_learning_path');
   });
@@ -141,18 +143,15 @@ void main() {
 
   testWidgets('17 word garden + badges', (t) async {
     await pumpApp(t, progress: midJourney());
-    await t.tap(find.byKey(const ValueKey('nav_Garden')));
-    await t.pumpAndSettle();
+    await openRoute(t, AppRoutes.garden);
     await shot(t, '17_word_garden');
-    await t.tap(find.byKey(const ValueKey('nav_Badges')));
-    await t.pumpAndSettle();
+    await openRoute(t, AppRoutes.achievements);
     await shot(t, '18_badges');
   });
 
   testWidgets('19 garden empty', (t) async {
     await pumpApp(t, progress: onboarded());
-    await t.tap(find.byKey(const ValueKey('nav_Garden')));
-    await t.pumpAndSettle();
+    await openRoute(t, AppRoutes.garden);
     await shot(t, '19_word_garden_empty');
   });
 

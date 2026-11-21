@@ -13,16 +13,17 @@ bool isEthiopic(int c) =>
     (c >= 0x2D80 && c <= 0x2DDF) ||
     (c >= 0xAB00 && c <= 0xAB2F);
 
-/// Every non-ASCII character that appears in app source (string literals,
-/// content). Comments are included too, which only makes the check stricter.
+/// Every non-ASCII character that appears in app source AND bundled content
+/// (subtitles, translations). Comments are included, which is stricter.
 Set<int> nonAsciiCharsInLib() => {
-  for (final f
-      in Directory('lib')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.dart')))
-    for (final r in f.readAsStringSync().runes)
-      if (r > 0x7E) r,
+  for (final (dir, ext) in [('lib', '.dart'), ('assets/content', '.json')])
+    for (final f
+        in Directory(dir)
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.path.endsWith(ext)))
+      for (final r in f.readAsStringSync().runes)
+        if (r > 0x7E) r,
 };
 
 void main() {
