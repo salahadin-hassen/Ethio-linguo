@@ -1,6 +1,38 @@
 # Character Rig Specification: Companion (Spark) & Professor
 
-**Status (2026-11-21): the engineering pipeline is ready, the rigs do not exist yet.**
+**Status (2026-11-21):**
+- **Engineering pipeline:** ready.
+- **Designer Rive rigs:** not delivered yet.
+- **Interim:** Spark and the Professor are rendered by an **interim code rig** (`lib/features/mascot/puppet/`). They are redrawn as jointed vector parts and driven by the same `CharacterRigController`. A bundled `.riv` replaces them automatically.
+
+## Interim code rig (what exists today)
+
+**Parts:** head, ears, eyes with pupils, lids and highlight, brows, nose, mouth (open, smile, round, teeth and tongue), cheeks, neck, torso, shoulders, two-bone arms with hand shapes (relaxed, open, point, thumb, fist, chin), legs and shoes. Spark also has his hair block. The Professor also has his cloud hair, glasses, moustache, beard and scarf.
+
+**Layers** (`PuppetMotor`):
+- **Expression:** emotion targets.
+- **Sustained states:** listening lean with occasional nods; hand to chin while thinking, with the eyes up and away.
+- **Gaze:** the eyes lead, the head follows.
+- **Speech:** while `isSpeaking` is true, an authored syllable pattern plus head emphasis drives the mouth, and the Professor gestures with the dialogue (explain, point, nod).
+- **Gestures:** keyframed with anticipation, action, follow-through and recovery, blended in and out.
+- **Idle:** three variants on an irregular 7–16 s schedule.
+- **Breathing:** torso and shoulder deformation.
+- **Blinks:** irregular, every 2.2–6.5 s, with an 18% chance of a double blink.
+- **Secondary:** hair and scarf lag behind the head and body.
+
+**Overlapping action:** each body part has its own spring stiffness. The pupils are fastest, then the head, then the torso and hair.
+
+**Constraints:**
+- The feet stay planted. The character as a whole never translates, scales or rotates.
+- Reduced motion: event-driven only, with no continuous ticking.
+
+**Evidence** (`docs/recordings/`), recorded from the release web build in Chrome over the DevTools protocol:
+- `spark_idle_web_runtime.mp4`: 14 s untouched home and welcome screen. Zero identical consecutive frames; gaze, a blink, a head tilt and the playful idle are visible.
+- `professor_live_addis_session_web_runtime.mp4`: a real Addis session going thinking → speaking (mouth and gestures during playback) → listening.
+
+**Limits** (why the Rive rigs below are still wanted):
+- The art is code-drawn: flat vector with simple shading. It is not mesh-deformed and not illustrator-grade.
+- Mouth movement is an authored pattern while audio plays. It is not lip-sync.
 
 ## 0. Blocker
 
