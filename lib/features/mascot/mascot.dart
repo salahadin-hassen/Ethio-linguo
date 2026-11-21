@@ -6,6 +6,7 @@ import 'characters.dart';
 import 'mascot_mood.dart';
 import 'rig/character_rig_controller.dart';
 import 'rig/rig_contract.dart';
+import 'puppet/puppet_character.dart';
 import 'rig/rive_character.dart';
 
 export 'characters.dart';
@@ -151,11 +152,19 @@ class _CharacterAvatarState extends State<CharacterAvatar> {
   @override
   Widget build(BuildContext context) {
     final reduced = Motion.reduced(context) || !widget.animate;
-    final fallback = _StaticPose(
-      character: widget.character,
-      state: widget.state,
-      size: widget.size,
-    );
+    // Interim: code-rigged puppet for Spark + Professor (part-based motion),
+    // static pose for the supporting cast. A bundled .riv always wins.
+    final Widget fallback = PuppetCharacter.supports(widget.character)
+        ? PuppetCharacter(
+            character: widget.character,
+            controller: _rig,
+            reducedMotion: reduced,
+          )
+        : _StaticPose(
+            character: widget.character,
+            state: widget.state,
+            size: widget.size,
+          );
     final spec = RigContract.specs[widget.character];
     final view = spec == null
         ? fallback

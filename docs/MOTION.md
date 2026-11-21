@@ -33,7 +33,7 @@ One motion language for the whole app. Tokens live in `lib/core/motion/motion.da
 
 - **All motion lives in the designer's rig.** Characters are animated **only** by rigged Rive files: breathing, blinks, gaze, gestures and speech. Flutter sends meaningful inputs through `CharacterRigController` and never moves the character itself.
 - **Rejected approach removed.** The earlier whole-image transforms (hop, tilt, bob, scale) were rejected and have been taken out.
-- **Fallback.** Until `companion.riv` and `professor.riv` are delivered (see `CHARACTER_RIG_SPEC.md`), the app shows the static pose for each state and cross-fades between poses.
+- **Interim.** Until `companion.riv` and `professor.riv` are delivered, Spark and the Professor use the interim **code rig** (part-based puppets with layered behaviour; see `CHARACTER_RIG_SPEC.md`). Wry and Beat show static poses.
 
 ## Sound (`lib/services/audio/sound_effects.dart`)
 
