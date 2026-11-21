@@ -170,7 +170,12 @@ class _CharacterAvatarState extends State<CharacterAvatar> {
         ? fallback
         : FutureBuilder<bool>(
             future: _hasRig,
-            builder: (context, snap) => snap.data == true
+            // Blank (not the puppet) while we find out whether a rig is
+            // bundled, so the two art styles never swap in front of the user.
+            builder: (context, snap) =>
+                snap.connectionState != ConnectionState.done
+                ? const SizedBox.expand()
+                : snap.data == true
                 ? RiveCharacter(
                     spec: spec,
                     controller: _rig,

@@ -3,6 +3,7 @@ import 'package:ethio_linguo/data/models/progress.dart';
 import 'package:ethio_linguo/features/companion/companion_lines.dart';
 import 'package:ethio_linguo/features/mascot/mascot.dart';
 import 'package:ethio_linguo/features/mascot/puppet/puppet_character.dart';
+import 'package:ethio_linguo/features/mascot/rig/rive_character.dart';
 import 'package:ethio_linguo/features/mascot/puppet/puppet_motor.dart';
 import 'package:ethio_linguo/features/mascot/puppet/puppet_specs.dart';
 import 'package:flutter/material.dart';
@@ -181,6 +182,8 @@ void main() {
   testWidgets(
     'no rig bundled -> code-rigged puppet, no whole-image transform',
     (t) async {
+      RigAssets.debugOverride(const {});
+      addTearDown(RigAssets.reset);
       t.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures(disableAnimations: true);
       addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);

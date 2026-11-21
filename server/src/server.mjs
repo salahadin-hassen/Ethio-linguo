@@ -58,7 +58,10 @@ export function createServer({ provider, speech = null, allowOrigin = process.en
       if (req.method === "POST" && req.url === "/v1/speech/synthesize") {
         if (!speech) throw new ContractError("unavailable", "No speech provider configured.", 503);
         const body = JSON.parse((await readBody(req, 8_000)).toString("utf8") || "{}");
-        return send(200, await speech.synthesize(String(body.text ?? ""), body.language));
+        const clip = await speech.synthesize(String(body.text ?? ""), body.language);
+        // no content logged: language, duration and envelope size only
+        console.log(`synth ok lang=${body.language} s=${clip.durationSeconds ?? "?"} envelopeFrames=${clip.envelope?.values?.length ?? 0}`);
+        return send(200, clip);
       }
       if (req.method === "POST" && req.url.startsWith("/v1/speech/transcribe")) {
         if (!speech) throw new ContractError("unavailable", "No speech provider configured.", 503);

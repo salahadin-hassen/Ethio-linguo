@@ -2,7 +2,7 @@
 
 **Status (2026-11-21):**
 - **Rive rigs authored with the official Rive CLI (1.10.0):** `companion.rml` and `professor.rml`. Both verify with 0 errors and were previewed headless state by state (§Rive CLI rigs).
-- **Not yet built into `.riv`:** the CLI writes a signed `.riv` only with `rive . --publish`, and that needs `rive login`, which must be approved by a person in a browser. Until a `.riv` is bundled, the app keeps using the interim code rig.
+- **Published and bundled:** `companion.riv` (32.8 KB) and `professor.riv` (36.0 KB) were built with `rive . --publish` after the owner approved `rive login`, on a Free workspace. The CLI reported both files as watermarked (Rive splash screen) because of the plan. The app now renders both characters from these files, and the interim code rig is used only if a `.riv` fails to load.
 - **Engineering pipeline:** ready. A bundled `.riv` replaces the interim rig automatically.
 
 ## Rive CLI rigs (what was built)
@@ -88,10 +88,17 @@ The ArmR / ArmL chains are two-bone, built from shoulder, elbow and wrist nodes.
 - **Headless preview bug:** in the CLI's `--commands` mode, only the first capture of a session rendered on this machine. Each verification frame was therefore captured in its own process.
 - **Splash screen:** per Rive's plans, files published on the free plan show a Rive splash/watermark, and a paid plan (Cadet or above) removes it. No plan was purchased; upgrading needs the owner's approval.
 
-**Publish (owner action):**
-1. Run `rive login` and approve the code in a browser.
-2. Run `cd assets/brand/characters/companion && rive . --publish`, then the same in `professor/`. This writes `companion.riv` / `professor.riv` next to the `.rml`, where the app looks for them.
+**Rebuild after editing an `.rml`:**
+1. Run `rive . --publish` in its folder. This writes `build/<name>.riv`.
+2. Copy that file next to the `.rml` (the path in `RigContract`).
 3. Rebuild the app.
+
+**Runtime evidence (release web build, headless Chrome):**
+- **`docs/recordings/spark_rive_welcome_web_runtime.mp4`:** the welcome screen rendered from `companion.riv`. Gaze, head turns and blinks are visible.
+- **`docs/recordings/professor_rive_live_addis_session_web_runtime.mp4`:** a real Addis session through thinking → speaking → listening, rendered from `professor.riv`.
+- **`docs/recordings/professor_rive_mouth_speaking_vs_listening.jpg`:** close-up crops from that session. The mouth opens and closes while speaking and stays shut while listening. These frames do not separate the envelope-driven jaw from the fallback talk loop. The envelope path is covered by `tutor_test.dart` ("native clip drives the jaw…") and by a live relay call: a 2.2 s Amharic clip gave a 45-frame envelope.
+- **Watermark:** no Rive splash was visible in these web captures, although the CLI says the files are watermarked. Check on a device before relying on it; removing it requires a paid plan and the owner's approval.
+- **No art-style swap during load:** while the manifest and `.riv` load, the avatar area is blank, and the rig then fades in over 180 ms (instantly under reduced motion). The code-drawn puppet appears only if loading fails.
 
 ## Interim code rig (what exists today)
 

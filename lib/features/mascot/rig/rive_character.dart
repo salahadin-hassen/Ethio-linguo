@@ -29,6 +29,11 @@ abstract final class RigAssets {
 
   @visibleForTesting
   static void reset() => _bundled = null;
+
+  /// Tests: pretend exactly [assets] are bundled.
+  @visibleForTesting
+  static void debugOverride(Set<String> assets) =>
+      _bundled = SynchronousFuture(assets);
 }
 
 /// Renders a rigged Rive character and mirrors [controller] into its state
@@ -47,7 +52,7 @@ class RiveCharacter extends StatefulWidget {
   final CharacterRigController controller;
   final bool reducedMotion;
 
-  /// Shown while loading or if the rig fails to load.
+  /// Shown only if the rig fails to load (while loading: blank space).
   final Widget fallback;
 
   @override
@@ -206,7 +211,13 @@ class _RiveCharacterState extends State<RiveCharacter> {
   @override
   Widget build(BuildContext context) {
     final rc = _rc;
-    if (_failed || rc == null) return widget.fallback;
-    return rive.RiveWidget(controller: rc, fit: rive.Fit.contain);
+    if (_failed) return widget.fallback;
+    if (rc == null) return const SizedBox.expand();
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: widget.reducedMotion ? 1 : 0, end: 1),
+      duration: const Duration(milliseconds: 180),
+      builder: (context, o, child) => Opacity(opacity: o, child: child),
+      child: rive.RiveWidget(controller: rc, fit: rive.Fit.contain),
+    );
   }
 }
