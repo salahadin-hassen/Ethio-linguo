@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'app/app.dart';
 import 'app/app_controller.dart';
+import 'app/app_services.dart';
 import 'data/local/demo_course.dart';
 import 'data/local/progress_store.dart';
+import 'data/repositories/media_repository.dart';
+import 'data/repositories/vocabulary_repository.dart';
+import 'services/tutor/tutor_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,5 +17,12 @@ Future<void> main() async {
     course: DemoCourse.course,
     store: store,
   );
-  runApp(LearningApp(controller: controller));
+  final services = AppServices(
+    media: AssetMediaRepository(),
+    vocabulary: await SharedPrefsVocabularyRepository.create(),
+    // Engineer 3 replaces this with the live implementation (see
+    // docs/INTEGRATION_CONTRACTS.md §7). It must stay the fallback.
+    tutor: const UnavailableTutorService(),
+  );
+  runApp(LearningApp(controller: controller, services: services));
 }

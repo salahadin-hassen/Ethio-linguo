@@ -178,6 +178,38 @@ class AppController extends ChangeNotifier {
     return base + r.correctFirstTry + (r.perfect ? 5 : 0);
   }
 
+  /// Shared XP hook for non-path activities (media lesson, tutor
+  /// conversation). Adds XP to today's stats and extends the streak.
+  /// Contract: docs/INTEGRATION_CONTRACTS.md §6. Returns the XP awarded.
+  Future<int> recordActivity({required String activityId, required int xp}) {
+    final p = _progress;
+    final t = today;
+    final int streak;
+    if (p.lastActiveDay == t) {
+      streak = max(p.streak, 1);
+    } else if (p.lastActiveDay != null &&
+        daysBetween(p.lastActiveDay!, t) == 1) {
+      streak = p.streak + 1;
+    } else {
+      streak = 1;
+    }
+    final daily = p.dailyFor(t);
+    final gained = max(xp, 0);
+    return _commit(
+      p.copyWith(
+        totalXp: p.totalXp + gained,
+        streak: streak,
+        lastActiveDay: t,
+        daily: DailyStats(
+          day: t,
+          xp: daily.xp + gained,
+          lessons: daily.lessons,
+          perfectLessons: daily.perfectLessons,
+        ),
+      ),
+    ).then((_) => gained);
+  }
+
   Future<LessonReward> completeLesson(
     LessonResult r, {
     NodeKind? kindOverride,
