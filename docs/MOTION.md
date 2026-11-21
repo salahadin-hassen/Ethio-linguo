@@ -29,17 +29,11 @@ One motion language for the whole app. Tokens live in `lib/core/motion/motion.da
 - Reduced motion: characters still change pose, but there is no movement, no idle timers and no thought-dot animation. Every transition becomes instant.
 - Animation is never the only signal. Every state also has text and semantics labels.
 
-## Characters (`lib/features/mascot/mascot.dart`)
+## Characters
 
-`CharacterAvatar(character, state, speaking, onTap)`:
-
-- **Pose** is the best available artwork for the state (`poseForState`).
-- **Reaction** plays once on every state change: hop (happy or approving), double-hop (excited or celebrating), tilt (confused or correcting), wave (greeting), pop (speaking or encouraging), lean (listening), glance (thinking).
-- **Idle life:** slow breathing, plus a small glance every 7–13 s while idle. Both stop under reduced motion and when the character is off-screen (TickerMode).
-- **Speaking:** a talking cadence that runs only while `speaking == true`, which callers set from real TTS or clip playback. This is not lip-sync, and it is not presented as such.
-- **Thinking:** animated thought dots instead of a spinner.
-- **Tap:** a hop and a haptic, then the caller's handler (Spark gives tips).
-- **Not faked:** blinking and mouth shapes. Both need rigged artwork (Rive or sprite sheets) in production; see "Future assets".
+- **All motion lives in the designer's rig.** Characters are animated **only** by rigged Rive files: breathing, blinks, gaze, gestures and speech. Flutter sends meaningful inputs through `CharacterRigController` and never moves the character itself.
+- **Rejected approach removed.** The earlier whole-image transforms (hop, tilt, bob, scale) were rejected and have been taken out.
+- **Fallback.** Until `companion.riv` and `professor.riv` are delivered (see `CHARACTER_RIG_SPEC.md`), the app shows the static pose for each state and cross-fades between poses.
 
 ## Sound (`lib/services/audio/sound_effects.dart`)
 

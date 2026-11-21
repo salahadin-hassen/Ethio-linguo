@@ -93,7 +93,8 @@ void main() {
         'speech_to_text', // OS speech recognition (tutor only)
         'http', // tutor relay client, isolated in onlineBoundary
         'record', // native-language questions to the tutor (online only)
-        'audioplayers', // plays the Professor's native-language voice
+        'audioplayers', // plays the Professor's native-language voice + SFX
+        'rive', // rigged character runtime; .riv files are bundled locally
       });
     });
 

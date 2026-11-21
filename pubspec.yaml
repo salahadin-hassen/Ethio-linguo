@@ -15,6 +15,7 @@ dependencies:
   # Local key-value persistence (offline). Wrapped behind ProgressStore and
   # VocabularyRepository so it can be swapped for SQLite/Drift later.
   record: ^7.2.0
+  rive: ^0.14.11
   shared_preferences: ^2.3.0
   speech_to_text: ^7.5.0
   video_player: ^2.14.1
@@ -34,7 +35,10 @@ flutter:
     - assets/content/bus_stop_hello/translations/
     # Original synthesized UI sounds (tool/sfx/make_sfx.py)
     - assets/sfx/
-    # Human cast artwork (see lib/features/mascot/characters.dart)
+    # Rigged Rive characters (designer-authored; see docs/CHARACTER_RIG_SPEC.md)
+    - assets/brand/characters/companion/
+    - assets/brand/characters/professor/
+    # Human cast artwork (static poses: fallback until rigs land) (see lib/features/mascot/characters.dart)
     - assets/characters/professor/
     - assets/characters/spark/
     - assets/characters/wry/
