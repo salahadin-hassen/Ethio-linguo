@@ -10,6 +10,7 @@ import '../services/audio/sound_effects.dart';
 import '../services/playback/media_playback.dart';
 import '../services/speech/speech_services.dart';
 import '../services/tutor/explanation_provider.dart';
+import '../services/tutor/relay_endpoint.dart';
 import '../services/tutor/tutor_engine.dart';
 
 /// Composition root for replaceable boundaries (repositories, providers).
@@ -31,8 +32,13 @@ class AppServices {
     this.nativeVoice = const UnavailableNativeVoice(),
     this.recorder = const UnavailableVoiceRecorder(),
     this.clipPlayer = const SilentAudioClipPlayer(),
+    this.relay,
     SoundEffects? sounds,
   }) : sounds = sounds ?? SilentSoundEffects();
+
+  /// The tutor relay address, editable on device. Null when the tutor is
+  /// not relay-backed (tests, previews).
+  final RelayEndpoint? relay;
 
   /// Offline-safe defaults for tests and previews: no plugins, no network.
   factory AppServices.inMemory({
@@ -48,8 +54,10 @@ class AppServices {
     VoiceRecorder? recorder,
     AudioClipPlayer? clipPlayer,
     SoundEffects? sounds,
+    RelayEndpoint? relay,
   }) => AppServices(
     sounds: sounds,
+    relay: relay,
     nativeVoice: nativeVoice ?? const UnavailableNativeVoice(),
     recorder: recorder ?? const UnavailableVoiceRecorder(),
     clipPlayer: clipPlayer ?? const SilentAudioClipPlayer(),

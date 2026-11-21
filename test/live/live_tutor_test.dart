@@ -29,9 +29,30 @@ void main() {
         transcript: const ['Liya: Hey, Dawit! Long time no see!'],
         targetExpressions: const ['Long time no see', 'catch up'],
       );
+      final sw = Stopwatch()..start();
+      int? replyMs;
       final open = await engine.respond(
-        TutorRequest(sessionId: 'live', context: ctx, history: const []),
+        TutorRequest(
+          sessionId: 'live',
+          context: ctx,
+          history: const [],
+          wantsVoice: true,
+        ),
+        onReply: (_) => replyMs ??= sw.elapsedMilliseconds,
       );
+      final turnMs = sw.elapsedMilliseconds;
+      // The relay pre-warmed this clip while the turn was delivered.
+      final voice0 = RelayNativeVoice(engine.baseUrl);
+      final clip0 = await voice0.synthesize(open.coach!, language: lang.code);
+      // ignore: avoid_print
+      print(
+        '[$lang] streamed reply at ${replyMs}ms, full turn ${turnMs}ms, '
+        'coach audio ready ${sw.elapsedMilliseconds}ms '
+        '(${clip0.mimeType}, envelope ${clip0.envelope?.values.length} frames)',
+      );
+      expect(replyMs, isNotNull, reason: 'relay streamed the reply first');
+      expect(replyMs!, lessThanOrEqualTo(turnMs));
+      expect(clip0.envelope, isNotNull);
       final r = await engine.respond(
         TutorRequest(
           sessionId: 'live',

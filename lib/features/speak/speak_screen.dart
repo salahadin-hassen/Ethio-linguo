@@ -13,6 +13,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/conversation.dart';
+import '../../services/tutor/relay_endpoint.dart';
 import '../mascot/mascot.dart';
 import '../progress/activity_reward_sheet.dart';
 import 'tutor_session_controller.dart';
@@ -920,6 +921,9 @@ class _InputBar extends StatelessWidget {
     final s = AppStrings.of(context);
     final listening = c.state == TutorState.listening;
     final recordingNative = c.state == TutorState.recordingNative;
+    // Barge-in: while the Professor talks, the mics stay live; tapping one
+    // cuts him off and opens it straight away.
+    final speaking = c.state == TutorState.speaking;
     return SafeArea(
       top: false,
       child: Padding(
@@ -944,11 +948,11 @@ class _InputBar extends StatelessWidget {
                         : Icons.help_outline_rounded,
                     color: AppColors.gold,
                     border: AppColors.goldShade,
-                    enabled: c.canTalk || recordingNative,
+                    enabled: c.canTalk || recordingNative || speaking,
                     label: 'Ask in ${c.native.endonym}',
                     onTap: recordingNative
                         ? c.stopNativeQuestion
-                        : c.startNativeQuestion,
+                        : c.interruptAndAsk,
                   ),
                 if (c.nativeVoiceAvailable) const SizedBox(width: Space.lg),
                 if (c.micAvailable)
@@ -958,9 +962,13 @@ class _InputBar extends StatelessWidget {
                     icon: listening ? Icons.stop_rounded : Icons.mic_rounded,
                     color: AppColors.coral,
                     border: AppColors.coralShade,
-                    enabled: c.canTalk || listening,
-                    label: listening ? 'Tap to send' : 'Speak English',
-                    onTap: listening ? c.stopListening : c.startListening,
+                    enabled: c.canTalk || listening || speaking,
+                    label: listening
+                        ? 'Tap to send'
+                        : speaking
+                        ? 'Cut in and speak'
+                        : 'Speak English',
+                    onTap: listening ? c.stopListening : c.interruptAndListen,
                   ),
               ],
             ),
@@ -970,6 +978,8 @@ class _InputBar extends StatelessWidget {
                 child: Text(
                   listening
                       ? 'Tap when you finish speaking'
+                      : speaking
+                      ? 'Tap the mic to cut in'
                       : s.en(S.holdToTalk).replaceFirst('Hold', 'Tap'),
                   style: AppType.caption.copyWith(color: AppColors.textMuted),
                 ),
@@ -1114,6 +1124,10 @@ class _Unavailable extends StatelessWidget {
           variant: AppButtonVariant.secondary,
           onPressed: onRetry,
         ),
+        if (ServicesScope.of(context).relay case final relay?) ...[
+          const SizedBox(height: Space.md),
+          _RelayField(relay: relay, onConnect: onRetry),
+        ],
         const SizedBox(height: Space.lg),
         Text('Offline practice (not AI)', style: AppType.overline),
         const SizedBox(height: Space.xs),
@@ -1137,4 +1151,72 @@ class _Unavailable extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The tutor relay address, editable on the device (saved). Lets a demo
+/// recover when the laptop running the relay gets a new Wi-Fi address.
+class _RelayField extends StatefulWidget {
+  const _RelayField({required this.relay, required this.onConnect});
+  final RelayEndpoint relay;
+  final VoidCallback onConnect;
+
+  @override
+  State<_RelayField> createState() => _RelayFieldState();
+}
+
+class _RelayFieldState extends State<_RelayField> {
+  late final _text = TextEditingController(
+    text: widget.relay.url?.toString() ?? '',
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _connect() async {
+    final ok = await widget.relay.set(_text.text);
+    if (!mounted) return;
+    setState(() => _error = ok ? null : 'Enter an address like 192.168.1.20');
+    if (ok) {
+      _text.text = widget.relay.url.toString();
+      widget.onConnect();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text('Tutor server', style: AppType.overline),
+      const SizedBox(height: Space.xs),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('speak_relay_url'),
+              controller: _text,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: '192.168.1.20:8787',
+                errorText: _error,
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _connect(),
+            ),
+          ),
+          const SizedBox(width: Space.sm),
+          FilledButton(
+            key: const ValueKey('speak_relay_connect'),
+            onPressed: _connect,
+            child: const Text('Connect'),
+          ),
+        ],
+      ),
+    ],
+  );
 }

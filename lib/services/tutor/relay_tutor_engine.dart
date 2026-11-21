@@ -5,29 +5,45 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../../data/models/conversation.dart';
+import 'relay_endpoint.dart';
 import 'tutor_engine.dart';
 
 /// TutorEngine backed by the team's relay (server/, contract v1). The relay
 /// holds provider credentials; this app holds none.
 class RelayTutorEngine implements TutorEngine {
-  RelayTutorEngine(this.baseUrl, {http.Client? client})
+  RelayTutorEngine(Uri baseUrl, {http.Client? client})
+    : this.at(RelayEndpoint(baseUrl), client: client);
+
+  /// Follows [endpoint], which the learner/presenter can change on device.
+  RelayTutorEngine.at(this.endpoint, {http.Client? client})
     : _client = client ?? http.Client();
 
-  final Uri baseUrl;
+  final RelayEndpoint endpoint;
   final http.Client _client;
+
+  Uri get baseUrl => endpoint.url ?? _unset;
+
+  /// Set from /v1/health: the relay can stream turns (reply first).
+  bool _streaming = false;
 
   @override
   Future<TutorAvailability> availability() async {
+    if (endpoint.url == null) {
+      return const TutorAvailability.unavailable(
+        'No tutor server is set. Enter the relay address below.',
+      );
+    }
     try {
       final res = await _client
           .get(baseUrl.resolve('/v1/health'))
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 6));
       if (res.statusCode != 200) {
         return TutorAvailability.unavailable(
           'Tutor relay returned ${res.statusCode}.',
         );
       }
       final j = jsonDecode(res.body) as Map;
+      _streaming = j['streaming'] == true;
       return j['ok'] == true
           ? TutorAvailability.live(provider: j['provider'] as String?)
           : const TutorAvailability.unavailable(
@@ -40,10 +56,9 @@ class RelayTutorEngine implements TutorEngine {
     }
   }
 
-  @override
-  Future<TutorResponse> respond(TutorRequest r) async {
+  Map<String, Object?> _body(TutorRequest r) {
     final c = r.context;
-    final body = {
+    return {
       'sessionId': r.sessionId,
       'character': r.characterId,
       'learner': {
@@ -71,14 +86,113 @@ class RelayTutorEngine implements TutorEngine {
               'sttConfidence': r.sttConfidence,
               'language': r.utteranceLanguage,
             },
+      'voice': r.wantsVoice,
     };
+  }
+
+  @override
+  Future<TutorResponse> respond(
+    TutorRequest r, {
+    void Function(String reply)? onReply,
+  }) async {
+    final body = jsonEncode(_body(r));
+    if (_streaming) {
+      final streamed = await _respondStream(body, onReply);
+      if (streamed != null) return streamed;
+      _streaming = false; // relay without the stream route: stop trying
+    }
+    return _respondOnce(body);
+  }
+
+  static TutorException _error(Object? code, String? message, int status) =>
+      TutorException(switch (code) {
+        'unavailable' => TutorErrorCode.unavailable,
+        'rate_limited' => TutorErrorCode.rateLimited,
+        'bad_request' => TutorErrorCode.badRequest,
+        _ => TutorErrorCode.providerError,
+      }, message ?? 'Tutor error $status');
+
+  /// NDJSON events: {"type":"reply"} as soon as the line is known, then
+  /// {"type":"turn"} or {"type":"error"}. Null = route not supported.
+  Future<TutorResponse?> _respondStream(
+    String body,
+    void Function(String reply)? onReply,
+  ) async {
+    final http.StreamedResponse res;
+    try {
+      final req = http.Request('POST', baseUrl.resolve('/v1/tutor/turn/stream'))
+        ..headers['content-type'] = 'application/json'
+        ..body = body;
+      res = await _client.send(req).timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw const TutorException(
+        TutorErrorCode.timeout,
+        'The Professor took too long to answer.',
+      );
+    } catch (_) {
+      throw const TutorException(
+        TutorErrorCode.unavailable,
+        'Can\'t reach the Professor.',
+      );
+    }
+    if (res.statusCode == 404) {
+      await res.stream.drain<void>();
+      return null;
+    }
+    if (res.statusCode != 200) {
+      final text = await res.stream.bytesToString();
+      Map? err;
+      try {
+        err = (jsonDecode(text) as Map)['error'] as Map?;
+      } catch (_) {}
+      throw _error(err?['code'], err?['message'] as String?, res.statusCode);
+    }
+    try {
+      await for (final line
+          in res.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())
+              .timeout(const Duration(seconds: 30))) {
+        if (line.trim().isEmpty) continue;
+        final e = (jsonDecode(line) as Map).cast<String, Object?>();
+        switch (e['type']) {
+          case 'reply':
+            final t = e['text'];
+            if (t is String && t.trim().isNotEmpty) onReply?.call(t.trim());
+          case 'turn':
+            return parseResponse((e['turn']! as Map).cast<String, Object?>());
+          case 'error':
+            final err = (e['error'] as Map?) ?? const {};
+            throw _error(err['code'], err['message'] as String?, 200);
+        }
+      }
+    } on TutorException {
+      rethrow;
+    } on TimeoutException {
+      throw const TutorException(
+        TutorErrorCode.timeout,
+        'The Professor took too long to answer.',
+      );
+    } catch (_) {
+      throw const TutorException(
+        TutorErrorCode.providerError,
+        'The connection to the Professor broke. Try again.',
+      );
+    }
+    throw const TutorException(
+      TutorErrorCode.providerError,
+      'The Professor\'s answer was cut off. Try again.',
+    );
+  }
+
+  Future<TutorResponse> _respondOnce(String body) async {
     final http.Response res;
     try {
       res = await _client
           .post(
             baseUrl.resolve('/v1/tutor/turn'),
             headers: {'content-type': 'application/json'},
-            body: jsonEncode(body),
+            body: body,
           )
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
@@ -104,12 +218,7 @@ class RelayTutorEngine implements TutorEngine {
     }
     if (res.statusCode != 200) {
       final err = (j['error'] as Map?) ?? const {};
-      throw TutorException(switch (err['code']) {
-        'unavailable' => TutorErrorCode.unavailable,
-        'rate_limited' => TutorErrorCode.rateLimited,
-        'bad_request' => TutorErrorCode.badRequest,
-        _ => TutorErrorCode.providerError,
-      }, (err['message'] as String?) ?? 'Tutor error ${res.statusCode}');
+      throw _error(err['code'], err['message'] as String?, res.statusCode);
     }
     return parseResponse(j);
   }
@@ -163,18 +272,24 @@ class RelayTutorEngine implements TutorEngine {
 /// Native-language speech through the relay (/v1/speech/*). Audio is sent
 /// once for transcription and never stored by the app or the relay.
 class RelayNativeVoice implements NativeVoice {
-  RelayNativeVoice(this.baseUrl, {http.Client? client})
+  RelayNativeVoice(Uri baseUrl, {http.Client? client})
+    : this.at(RelayEndpoint(baseUrl), client: client);
+
+  RelayNativeVoice.at(this.endpoint, {http.Client? client})
     : _client = client ?? http.Client();
 
-  final Uri baseUrl;
+  final RelayEndpoint endpoint;
+  Uri get baseUrl => endpoint.url ?? _unset;
+
   final http.Client _client;
 
   @override
   Future<bool> available() async {
+    if (endpoint.url == null) return false;
     try {
       final res = await _client
           .get(baseUrl.resolve('/v1/health'))
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 6));
       return res.statusCode == 200 &&
           (jsonDecode(res.body) as Map)['speech'] != null;
     } catch (_) {
@@ -239,3 +354,6 @@ class RelayNativeVoice implements NativeVoice {
     return (j['text'] as String?)?.trim() ?? '';
   }
 }
+
+/// Placeholder when no relay is set: requests fail fast as unreachable.
+final _unset = Uri.parse('http://relay-not-set.invalid');

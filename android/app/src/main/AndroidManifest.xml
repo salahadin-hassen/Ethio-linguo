@@ -3,7 +3,11 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Push-to-talk with the Professor. Audio is processed by the OS recognizer and never stored. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- usesCleartextTraffic: the demo tutor relay runs on a laptop on the
+         local network (http://<laptop-ip>:8787). Production should put the
+         relay behind HTTPS and remove this. -->
     <application
+        android:usesCleartextTraffic="true"
         android:label="ethio_linguo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

@@ -12,14 +12,34 @@ class FakeLiveTutor implements TutorEngine {
   final requests = <TutorRequest>[];
   TutorException? failWith;
 
+  /// Fail only the next N calls (then answer normally).
+  int failTimes = 0;
+
+  /// Stream the reply early through onReply, like the real relay.
+  bool streams = false;
+
   @override
   Future<TutorAvailability> availability() async =>
       const TutorAvailability.live(provider: 'fake');
 
   @override
-  Future<TutorResponse> respond(TutorRequest r) async {
+  Future<TutorResponse> respond(
+    TutorRequest r, {
+    void Function(String reply)? onReply,
+  }) async {
     requests.add(r);
+    if (failTimes > 0) {
+      failTimes--;
+      throw failWith ??
+          const TutorException(TutorErrorCode.timeout, 'slow network');
+    }
     if (failWith != null) throw failWith!;
+    final out = await _answer(r);
+    if (streams) onReply?.call(out.replyText);
+    return out;
+  }
+
+  Future<TutorResponse> _answer(TutorRequest r) async {
     if (r.utterance == null) {
       return const TutorResponse(
         replyText: 'Hey! Long time no see! How have you been?',
@@ -76,10 +96,15 @@ class FakeRecognizer implements SpeechRecognizer {
     this.ok = true,
     String say = 'Long time no see',
     List<String>? phrases,
+    this.partialOnly = false,
   }) : _queue = [
          ...(phrases ?? [say]),
        ];
   final bool ok;
+
+  /// Emit partial results only, like a recognizer still waiting out its
+  /// silence timeout (no final result arrives on its own).
+  final bool partialOnly;
   final List<String> _queue;
   bool _init = false;
 
@@ -99,6 +124,10 @@ class FakeRecognizer implements SpeechRecognizer {
     onLevel?.call(0.7);
     final say = _queue.removeAt(0);
     onResult(RecognizedSpeech(say.split(' ').first, isFinal: false));
+    if (partialOnly) {
+      onResult(RecognizedSpeech(say, isFinal: false));
+      return;
+    }
     onResult(RecognizedSpeech(say, confidence: 0.9, isFinal: true));
   }
 
@@ -167,6 +196,7 @@ class FakeClipPlayer implements AudioClipPlayer {
       onPosition?.call(p);
     }
   }
+
   @override
   Future<void> stop() async {}
 }

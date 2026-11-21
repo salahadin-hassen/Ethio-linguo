@@ -86,7 +86,7 @@ class PlatformSpeechRecognizer implements SpeechRecognizer {
       partialResults: true,
       cancelOnError: true,
       listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 4),
+      pauseFor: const Duration(seconds: 3),
     ),
   );
 

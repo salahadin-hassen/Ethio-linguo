@@ -11,6 +11,7 @@ import 'package:ethio_linguo/features/mascot/characters.dart';
 import 'package:ethio_linguo/features/speak/tutor_session_controller.dart';
 import 'package:ethio_linguo/services/audio/sound_effects.dart';
 import 'package:ethio_linguo/services/analytics/analytics.dart';
+import 'package:ethio_linguo/services/tutor/relay_endpoint.dart';
 import 'package:ethio_linguo/services/tutor/relay_tutor_engine.dart';
 import 'package:ethio_linguo/services/tutor/tutor_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +78,133 @@ void main() {
       expect(r.usedExpressions, ['Long time no see']);
     });
 
+    test('streaming relay: reply first, then the turn; errors and old '
+        'relays (404) handled', () async {
+      final turnJson = {
+        'reply': {'text': 'Nice to see you!', 'translation': '-'},
+        'coach': 'ጥሩ ነው።',
+        'task': {'type': 'repeat', 'prompt': 'Nice to see you!'},
+        'feedback': null,
+        'usedExpressions': <String>[],
+        'done': false,
+      };
+      var mode = 'ok';
+      final paths = <String>[];
+      final client = MockClient.streaming((req, body) async {
+        paths.add(req.url.path);
+        if (req.url.path == '/v1/health') {
+          return http.StreamedResponse(
+            Stream.value(
+              utf8.encode('{"ok":true,"provider":"addis","streaming":true}'),
+            ),
+            200,
+          );
+        }
+        if (req.url.path == '/v1/tutor/turn') {
+          return http.StreamedResponse(
+            Stream.value(utf8.encode(jsonEncode(turnJson))),
+            200,
+          );
+        }
+        if (mode == 'old') {
+          return http.StreamedResponse(Stream.value(utf8.encode('{}')), 404);
+        }
+        final sent = jsonDecode(await body.bytesToString()) as Map;
+        expect(sent['voice'], isTrue);
+        final events = mode == 'error'
+            ? [
+                {'type': 'reply', 'text': 'Hmm.'},
+                {
+                  'type': 'error',
+                  'error': {'code': 'rate_limited', 'message': 'busy'},
+                },
+              ]
+            : [
+                {'type': 'reply', 'text': 'Nice to see you!'},
+                {'type': 'turn', 'turn': turnJson},
+              ];
+        return http.StreamedResponse(
+          Stream.fromIterable([
+            for (final e in events) utf8.encode('${jsonEncode(e)}\n'),
+          ]),
+          200,
+        );
+      });
+      final engine = RelayTutorEngine(
+        Uri.parse('http://relay.test'),
+        client: client,
+      );
+      expect((await engine.availability()).live, isTrue);
+      const req = TutorRequest(
+        sessionId: 's',
+        context: ctx,
+        history: [],
+        wantsVoice: true,
+      );
+      final early = <String>[];
+      final r = await engine.respond(req, onReply: early.add);
+      expect(early, ['Nice to see you!']);
+      expect(r.coach, 'ጥሩ ነው።');
+      expect(paths.last, '/v1/tutor/turn/stream');
+
+      mode = 'error';
+      await expectLater(
+        engine.respond(req),
+        throwsA(
+          isA<TutorException>().having(
+            (e) => e.code,
+            'code',
+            TutorErrorCode.rateLimited,
+          ),
+        ),
+      );
+
+      mode = 'old';
+      final viaOld = await engine.respond(req, onReply: early.add);
+      expect(viaOld.replyText, 'Nice to see you!');
+      expect(paths.last, '/v1/tutor/turn', reason: 'fell back to one-shot');
+    });
+
+    test(
+      'tutor server address: typed on a phone, saved, followed live',
+      () async {
+        expect(
+          RelayEndpoint.parse('192.168.1.20').toString(),
+          'http://192.168.1.20:8787',
+        );
+        expect(
+          RelayEndpoint.parse(' http://10.0.0.5:9000/ ').toString(),
+          'http://10.0.0.5:9000',
+        );
+        expect(
+          RelayEndpoint.parse('https://tutor.example.org').toString(),
+          'https://tutor.example.org',
+        );
+        expect(RelayEndpoint.parse(''), isNull);
+        expect(RelayEndpoint.parse('ftp://x'), isNull);
+
+        Uri? saved;
+        final endpoint = RelayEndpoint(null, onSave: (u) async => saved = u);
+        final hosts = <String>[];
+        final engine = RelayTutorEngine.at(
+          endpoint,
+          client: MockClient((req) async {
+            hosts.add(req.url.host);
+            return http.Response('{"ok":true,"provider":"addis"}', 200);
+          }),
+        );
+        final none = await engine.availability();
+        expect(none.live, isFalse);
+        expect(none.reason, contains('No tutor server'));
+        expect(hosts, isEmpty, reason: 'no request without an address');
+        expect(await endpoint.set('not a url ::'), isFalse);
+        expect(await endpoint.set('192.168.1.20'), isTrue);
+        expect(saved.toString(), 'http://192.168.1.20:8787');
+        expect((await engine.availability()).live, isTrue);
+        expect(hosts, ['192.168.1.20']);
+      },
+    );
+
     test('maps relay errors and outages to typed exceptions', () async {
       final down = RelayTutorEngine(
         Uri.parse('http://relay.test'),
@@ -117,6 +245,7 @@ void main() {
       List<String> phrases = const ['Long time no see'],
       FakeNativeVoice? voice,
       FakeClipPlayer? player,
+      FakeRecognizer? recognizer,
     }) async {
       final store = InMemoryProgressStore(
         const LearnerProgress(onboarded: true, native: NativeLanguage.amharic),
@@ -129,7 +258,7 @@ void main() {
       final synth = FakeSynth();
       final services = AppServices.inMemory(
         tutor: engine,
-        speechIn: FakeRecognizer(phrases: phrases),
+        speechIn: recognizer ?? FakeRecognizer(phrases: phrases),
         speechOut: synth,
         analytics: RecordingAnalytics(),
         nativeVoice: voice,
@@ -215,30 +344,33 @@ void main() {
       expect(synth.spoken, hasLength(3));
     });
 
-    test('native clip drives the jaw from its real loudness envelope', () async {
-      final voice = FakeNativeVoice()
-        ..envelope = const AmplitudeEnvelope(50, [0, 0.5, 1, 0.25]);
-      final player = FakeClipPlayer()
-        ..positions = const [
-          Duration.zero,
-          Duration(milliseconds: 50),
-          Duration(milliseconds: 100),
-          Duration(milliseconds: 125),
-        ];
-      final (c, _, _, _) = await make(
-        FakeLiveTutor(),
-        voice: voice,
-        player: player,
-      );
-      final seen = <double?>[];
-      c.voiceLevel.addListener(() => seen.add(c.voiceLevel.value));
-      await c.start();
-      await pumpEventQueue();
-      expect(player.plays, greaterThan(0));
-      // silence is held just open enough to stay in the audio-driven state
-      expect(seen.take(4), [0.02, 0.5, 1.0, closeTo(0.625, 1e-9)]);
-      expect(c.voiceLevel.value, isNull, reason: 'cleared after playback');
-    });
+    test(
+      'native clip drives the jaw from its real loudness envelope',
+      () async {
+        final voice = FakeNativeVoice()
+          ..envelope = const AmplitudeEnvelope(50, [0, 0.5, 1, 0.25]);
+        final player = FakeClipPlayer()
+          ..positions = const [
+            Duration.zero,
+            Duration(milliseconds: 50),
+            Duration(milliseconds: 100),
+            Duration(milliseconds: 125),
+          ];
+        final (c, _, _, _) = await make(
+          FakeLiveTutor(),
+          voice: voice,
+          player: player,
+        );
+        final seen = <double?>[];
+        c.voiceLevel.addListener(() => seen.add(c.voiceLevel.value));
+        await c.start();
+        await pumpEventQueue();
+        expect(player.plays, greaterThan(0));
+        // silence is held just open enough to stay in the audio-driven state
+        expect(seen.take(4), [0.02, 0.5, 1.0, closeTo(0.625, 1e-9)]);
+        expect(c.voiceLevel.value, isNull, reason: 'cleared after playback');
+      },
+    );
 
     test('envelope: parse, interpolate, silent past the end', () {
       final e = AmplitudeEnvelope.fromJson({
@@ -248,7 +380,13 @@ void main() {
       expect(e.values, [0.0, 1.0, 1.0, 0.0]);
       expect(e.at(const Duration(milliseconds: 25)), closeTo(0.5, 1e-9));
       expect(e.at(const Duration(seconds: 5)), 0);
-      expect(AmplitudeEnvelope.fromJson({'frameMs': 0, 'values': [1]}), isNull);
+      expect(
+        AmplitudeEnvelope.fromJson({
+          'frameMs': 0,
+          'values': [1],
+        }),
+        isNull,
+      );
       expect(AmplitudeEnvelope.fromJson(null), isNull);
     });
 
@@ -307,7 +445,8 @@ void main() {
       expect(store.value!.totalXp, 0);
     });
 
-    test('provider failure -> error with retry, then unavailable', () async {
+    test('provider failure -> error with retry; a network blip never ends '
+        'the session, repeated failures do', () async {
       final tutor = FakeLiveTutor();
       final (c, _, _, _) = await make(tutor);
       await c.start();
@@ -316,7 +455,58 @@ void main() {
       expect(c.state, TutorState.error);
       expect(c.turns.last.text, 'hello'); // transcript kept
       await c.retry();
+      expect(c.state, TutorState.error, reason: 'still recoverable');
+      await c.retry();
       expect(c.state, TutorState.unavailable);
+    });
+
+    test(
+      'hands-free: a failed turn retries itself once and recovers',
+      () async {
+        final tutor = FakeLiveTutor()..failTimes = 1;
+        final (c, _, _, _) = await make(tutor, live: true, phrases: []);
+        await c.start();
+        expect(c.state, TutorState.error);
+        await Future<void>.delayed(const Duration(milliseconds: 1800));
+        expect(tutor.requests, hasLength(2), reason: 'retried automatically');
+        expect(c.turns.single.speaker, Speaker.tutor);
+        expect(c.state, isNot(TutorState.error));
+        c.dispose();
+      },
+    );
+
+    test('streamed reply: spoken as soon as it arrives, once, then completed '
+        'with coaching and task', () async {
+      final tutor = FakeLiveTutor()..streams = true;
+      final voice = FakeNativeVoice();
+      final (c, _, _, synth) = await make(tutor, voice: voice);
+      await c.start();
+      expect(synth.spoken, ['Hey! Long time no see! How have you been?']);
+      expect(c.turns, hasLength(1), reason: 'early line replaced in place');
+      expect(c.turns.single.coach, isNotNull);
+      expect(c.currentTask!.type, TaskType.repeat);
+      expect(tutor.requests.single.wantsVoice, isTrue);
+      expect(voice.spoken, hasLength(1), reason: 'coaching voiced after');
+    });
+
+    test('repeat task: sent as soon as every word is heard (no silence '
+        'wait)', () async {
+      final (c, _, _, _) = await make(
+        FakeLiveTutor(),
+        recognizer: FakeRecognizer(
+          phrases: ['long time no see'],
+          partialOnly: true, // no final result: only our endpointing can send
+        ),
+      );
+      await c.start();
+      expect(c.currentTask!.prompt, 'Long time no see!');
+      await c.startListening();
+      expect(c.state, TutorState.listening);
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      final learner = c.turns.firstWhere((t) => t.speaker == Speaker.learner);
+      expect(learner.text, 'long time no see');
+      expect(learner.repeatScore!.passed, isTrue);
+      c.dispose();
     });
   });
 }

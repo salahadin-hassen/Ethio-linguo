@@ -126,6 +126,19 @@ class TutorSessionController extends ChangeNotifier {
 
   int _failures = 0;
   bool _disposed = false;
+
+  /// Bumped whenever the current exchange is abandoned (barge-in, end):
+  /// every await in the speaking pipeline checks it and stops quietly.
+  int _epoch = 0;
+
+  /// Sends a "repeat" attempt as soon as every target word was heard,
+  /// instead of waiting for the recognizer's silence timeout.
+  Timer? _endpoint;
+  Timer? _autoRetry;
+
+  /// How long to wait, after the English line, for the coaching audio
+  /// before moving on (the text stays on screen with a replay button).
+  static const coachAudioPatience = Duration(seconds: 8);
   RecognizedSpeech? _last;
   ActivityReward? reward;
 
@@ -146,6 +159,10 @@ class TutorSessionController extends ChangeNotifier {
   TutorTask? get currentTask => lastTutorTurn?.task;
 
   void _set(TutorState s, {String? msg}) {
+    if (s != TutorState.listening) {
+      _endpoint?.cancel();
+      _endpoint = null;
+    }
     if (s != TutorState.listening && s != TutorState.recordingNative) {
       level.value = null; // meter only while the mic is really open
       unawaited(_levelSub?.cancel());
@@ -215,9 +232,10 @@ class TutorSessionController extends ChangeNotifier {
       localeId: Languages.en.speechLocale!,
       onLevel: (v) => level.value = v,
       onResult: (r) {
+        if (state != TutorState.listening) return;
         _last = r;
         partial = r.text;
-        if (r.isFinal && state == TutorState.listening) {
+        if (r.isFinal) {
           if (r.text.trim().isEmpty) {
             _set(
               TutorState.idle,
@@ -226,18 +244,36 @@ class TutorSessionController extends ChangeNotifier {
           } else {
             unawaited(_submit(r.text, r.confidence));
           }
-        } else if (!_disposed) {
-          notifyListeners();
+          return;
         }
+        _maybeEndpoint(r.text);
+        if (!_disposed) notifyListeners();
       },
     );
+  }
+
+  /// Smart end-of-turn for "repeat" tasks: once every target word has been
+  /// heard and the learner pauses briefly, send it. Saves the recognizer's
+  /// multi-second silence wait on the most common turn type.
+  void _maybeEndpoint(String heard) {
+    final task = currentTask;
+    if (task?.type != TaskType.repeat) return;
+    if (!scoreRepeat(task!.prompt, heard).passed) return;
+    _endpoint?.cancel();
+    _endpoint = Timer(const Duration(milliseconds: 700), () {
+      if (state == TutorState.listening && partial == heard) {
+        unawaited(stopListening());
+      }
+    });
   }
 
   /// Tap-to-stop (or hold release). Sends whatever was heard so far.
   Future<void> stopListening() async {
     if (state != TutorState.listening) return;
+    _endpoint?.cancel();
     await _s.speechIn.stop();
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    // A final result may still arrive and submit; give it a moment.
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     if (state == TutorState.listening) {
       final text = _last?.text ?? partial;
       if (text.trim().isEmpty) {
@@ -249,6 +285,18 @@ class TutorSessionController extends ChangeNotifier {
         await _submit(text, _last?.confidence);
       }
     }
+  }
+
+  /// Barge-in: cut the Professor off and start talking right away.
+  Future<void> interruptAndListen() async {
+    if (state == TutorState.speaking) await interrupt();
+    await startListening();
+  }
+
+  /// Barge-in for a question in the learner's own language.
+  Future<void> interruptAndAsk() async {
+    if (state == TutorState.speaking) await interrupt();
+    await startNativeQuestion();
   }
 
   // ---------- Native-language questions ----------
@@ -297,6 +345,7 @@ class TutorSessionController extends ChangeNotifier {
 
   Future<void> retry() async {
     if (state != TutorState.error) return;
+    _autoRetry?.cancel();
     final lastLearner = turns.lastWhere(
       (t) => t.speaker == Speaker.learner,
       orElse: () => const TutorTurn(speaker: Speaker.learner, text: ''),
@@ -309,6 +358,7 @@ class TutorSessionController extends ChangeNotifier {
         lastLearner.text,
         lastLearner.sttConfidence,
         language: lastLearner.language,
+        sound: false,
       );
     }
   }
@@ -316,17 +366,20 @@ class TutorSessionController extends ChangeNotifier {
   /// Replays the Professor's last coaching line in the learner's language.
   Future<void> replayCoach(TutorTurn t) async {
     if (t.coach == null || !canTalk) return;
+    final epoch = ++_epoch;
     _set(TutorState.speaking);
-    await _speakNative(t.coach!);
-    if (!_disposed) _set(TutorState.idle);
+    final clip = await _fetchClip(t.coach!);
+    if (clip != null) await _playClip(clip, epoch);
+    if (!_disposed && epoch == _epoch) _set(TutorState.idle);
   }
 
   /// Speaks an English sentence (e.g. the task) with the device voice.
   Future<void> sayEnglish(String text) async {
     if (!englishVoice || !canTalk) return;
+    final epoch = ++_epoch;
     _set(TutorState.speaking);
     await _s.speechOut.speak(text, localeId: Languages.en.speechLocale!);
-    if (!_disposed) _set(TutorState.idle);
+    if (!_disposed && epoch == _epoch) _set(TutorState.idle);
   }
 
   // ---------- Core exchange ----------
@@ -335,19 +388,26 @@ class TutorSessionController extends ChangeNotifier {
     String text,
     double? confidence, {
     String language = 'en',
+    bool sound = true,
   }) async {
     final task = currentTask;
+    final repeat = language == 'en' && task?.type == TaskType.repeat
+        ? scoreRepeat(task!.prompt, text)
+        : null;
     turns.add(
       TutorTurn(
         speaker: Speaker.learner,
         text: text,
         sttConfidence: confidence,
         language: language,
-        repeatScore: language == 'en' && task?.type == TaskType.repeat
-            ? scoreRepeat(task!.prompt, text)
-            : null,
+        repeatScore: repeat,
       ),
     );
+    // Instant, honest feedback for a repeat: the word match is computed on
+    // the device from what was actually heard, so it needs no round trip.
+    if (repeat != null && sound) {
+      _s.sounds.play(repeat.passed ? Sfx.correct : Sfx.tap);
+    }
     partial = '';
     await _exchange(text, confidence, language: language);
   }
@@ -357,7 +417,12 @@ class TutorSessionController extends ChangeNotifier {
     double? confidence, {
     String language = 'en',
   }) async {
+    final epoch = ++_epoch;
+    _autoRetry?.cancel();
     _set(TutorState.thinking);
+    final wantsVoice = speakCoaching && nativeVoiceAvailable;
+    TutorTurn? early;
+    Future<void>? english;
     final TutorResponse r;
     try {
       r = await _s.tutor.respond(
@@ -370,34 +435,49 @@ class TutorSessionController extends ChangeNotifier {
           utterance: utterance,
           sttConfidence: confidence,
           utteranceLanguage: language,
+          wantsVoice: wantsVoice,
         ),
+        // Streaming: the Professor starts talking while the rest of the
+        // turn (coaching, task, feedback) is still being generated.
+        onReply: (text) {
+          if (_disposed || epoch != _epoch || early != null) return;
+          early = TutorTurn(speaker: Speaker.tutor, text: text);
+          turns.add(early!);
+          _set(TutorState.speaking);
+          if (englishVoice) {
+            english = _s.speechOut.speak(
+              text,
+              localeId: Languages.en.speechLocale!,
+            );
+          }
+        },
       );
     } on TutorException catch (e) {
-      _failures++;
-      _set(
-        _failures >= 2 || e.code == TutorErrorCode.unavailable
-            ? TutorState.unavailable
-            : TutorState.error,
-        msg: e.message,
-      );
+      if (_disposed || epoch != _epoch) return;
+      if (early != null) {
+        turns.remove(early);
+        await _s.speechOut.stop();
+      }
+      _failed(e);
       return;
     }
-    if (_disposed) return;
+    if (_disposed || epoch != _epoch) return;
     _failures = 0;
     if (utterance != null &&
         (r.feedback != null || r.usedExpressions.isNotEmpty)) {
-      final i = turns.length - 1;
+      final i = turns.lastIndexWhere((t) => t.speaker == Speaker.learner);
       turns[i] = turns[i].copyWith(
         feedback: r.feedback,
         usedExpressions: r.usedExpressions,
       );
     }
-    if (utterance != null && language == 'en') {
-      final last = turns.last;
-      final good =
-          last.feedback?.kind == FeedbackKind.great ||
-          (last.repeatScore?.passed ?? false);
-      _s.sounds.play(good ? Sfx.correct : Sfx.tap);
+    if (utterance != null &&
+        language == 'en' &&
+        turns.lastWhere((t) => t.speaker == Speaker.learner).repeatScore ==
+            null) {
+      _s.sounds.play(
+        r.feedback?.kind == FeedbackKind.great ? Sfx.correct : Sfx.tap,
+      );
     }
     final tutorTurn = TutorTurn(
       speaker: Speaker.tutor,
@@ -407,17 +487,39 @@ class TutorSessionController extends ChangeNotifier {
       task: r.task,
       hint: r.hint,
     );
-    turns.add(tutorTurn);
-    _set(TutorState.speaking);
-    if (englishVoice) {
-      await _s.speechOut.speak(
+    final at = early == null ? -1 : turns.indexOf(early!);
+    if (at >= 0) {
+      turns[at] = tutorTurn;
+    } else {
+      turns.add(tutorTurn);
+    }
+    // The relay started synthesising this as soon as the turn was ready;
+    // ask for it now so it downloads while the English line is spoken.
+    final coachClip = r.coach != null && wantsVoice
+        ? _fetchClip(r.coach!)
+        : null;
+    if (state == TutorState.speaking) {
+      notifyListeners();
+    } else {
+      _set(TutorState.speaking);
+    }
+    if (english == null && englishVoice) {
+      english = _s.speechOut.speak(
         r.replyText,
         localeId: Languages.en.speechLocale!,
       );
     }
-    if (_disposed || state != TutorState.speaking) return;
-    if (r.coach != null) await _speakNative(r.coach!);
-    if (_disposed || state != TutorState.speaking) return;
+    await english;
+    if (_disposed || epoch != _epoch || state != TutorState.speaking) return;
+    if (coachClip != null) {
+      final clip = await coachClip.timeout(
+        coachAudioPatience,
+        onTimeout: () => null,
+      );
+      if (_disposed || epoch != _epoch || state != TutorState.speaking) return;
+      if (clip != null) await _playClip(clip, epoch);
+    }
+    if (_disposed || epoch != _epoch || state != TutorState.speaking) return;
     if (r.done) {
       _set(TutorState.ended);
       return;
@@ -426,49 +528,76 @@ class TutorSessionController extends ChangeNotifier {
     if (liveMode && micAvailable) unawaited(startListening());
   }
 
-  Future<void> _speakNative(String text) async {
-    if (!speakCoaching || !nativeVoiceAvailable) return;
-    try {
-      final clip = await _s.nativeVoice.synthesize(text, language: native.code);
-      if (_disposed || !speakCoaching) return;
-      final env = clip.envelope;
-      // Real position from the player, interpolated between its (coarse,
-      // ~200 ms) position events so the jaw follows 50 ms envelope frames.
-      var pos = Duration.zero;
-      final since = Stopwatch();
-      void sample(Duration t) {
-        if (_disposed || env == null) return;
-        // >= 0.02 keeps the rig in its audio-driven mouth state while the
-        // clip plays, even through quiet frames.
-        voiceLevel.value = math.max(0.02, env.at(t));
-      }
+  /// Network trouble mid-conversation is usually brief: keep the session,
+  /// retry once by itself in hands-free mode, and only give up (honest
+  /// "unavailable" screen) when the Professor was never reached or after
+  /// repeated failures.
+  void _failed(TutorException e) {
+    _failures++;
+    final neverConnected = !turns.any((t) => t.speaker == Speaker.tutor);
+    final fatal =
+        (e.code == TutorErrorCode.unavailable && neverConnected) ||
+        _failures >= 3;
+    _set(fatal ? TutorState.unavailable : TutorState.error, msg: e.message);
+    if (!fatal &&
+        liveMode &&
+        _failures == 1 &&
+        e.code != TutorErrorCode.badRequest) {
+      _autoRetry = Timer(const Duration(milliseconds: 1500), () {
+        if (!_disposed && state == TutorState.error) unawaited(retry());
+      });
+    }
+  }
 
-      final tick = env == null
-          ? null
-          : Timer.periodic(const Duration(milliseconds: 50), (_) {
-              if (since.isRunning) sample(pos + since.elapsed);
-            });
-      try {
-        await _s.clipPlayer.play(
-          Uint8List.fromList(clip.bytes),
-          mimeType: clip.mimeType,
-          onPosition: env == null
-              ? null
-              : (p) {
-                  pos = p;
-                  since
-                    ..reset()
-                    ..start();
-                  sample(p);
-                },
-        );
-      } finally {
-        tick?.cancel();
-        if (!_disposed) voiceLevel.value = null;
-      }
-    } on TutorException {
-      // Coaching stays visible as text; voice is a bonus.
-    } catch (_) {}
+  /// Native-language audio for [text], or null if it can't be had (the line
+  /// stays readable on screen; voice is a bonus, never a blocker).
+  Future<SpeechClip?> _fetchClip(String text) async {
+    try {
+      return await _s.nativeVoice.synthesize(text, language: native.code);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _playClip(SpeechClip clip, int epoch) async {
+    if (_disposed || !speakCoaching || epoch != _epoch) return;
+    final env = clip.envelope;
+    // Real position from the player, interpolated between its (coarse,
+    // ~200 ms) position events so the jaw follows 50 ms envelope frames.
+    var pos = Duration.zero;
+    final since = Stopwatch();
+    void sample(Duration t) {
+      if (_disposed || env == null) return;
+      // >= 0.02 keeps the rig in its audio-driven mouth state while the
+      // clip plays, even through quiet frames.
+      voiceLevel.value = math.max(0.02, env.at(t));
+    }
+
+    final tick = env == null
+        ? null
+        : Timer.periodic(const Duration(milliseconds: 50), (_) {
+            if (since.isRunning) sample(pos + since.elapsed);
+          });
+    try {
+      await _s.clipPlayer.play(
+        Uint8List.fromList(clip.bytes),
+        mimeType: clip.mimeType,
+        onPosition: env == null
+            ? null
+            : (p) {
+                pos = p;
+                since
+                  ..reset()
+                  ..start();
+                sample(p);
+              },
+      );
+    } catch (_) {
+      // Playback failure: the coaching text is still on screen.
+    } finally {
+      tick?.cancel();
+      if (!_disposed) voiceLevel.value = null;
+    }
   }
 
   Future<void> _stopVoices() async {
@@ -479,6 +608,7 @@ class TutorSessionController extends ChangeNotifier {
   /// Interrupts the Professor (barge-in) and returns to the learner's turn.
   Future<void> interrupt() async {
     if (state != TutorState.speaking) return;
+    _epoch++;
     await _stopVoices();
     _set(TutorState.idle);
   }
@@ -526,6 +656,8 @@ class TutorSessionController extends ChangeNotifier {
   /// Ends the conversation; awards XP through the progress service only
   /// for a real conversation (>= [minLearnerTurnsForXp] English turns).
   Future<ActivityReward?> end() async {
+    _epoch++;
+    _autoRetry?.cancel();
     await _s.speechIn.cancel();
     await _s.recorder.cancel();
     await _stopVoices();
@@ -561,6 +693,8 @@ class TutorSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _endpoint?.cancel();
+    _autoRetry?.cancel();
     unawaited(_levelSub?.cancel());
     level.dispose();
     voiceLevel.dispose();

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'services/tutor/relay_endpoint.dart';
 
 import 'app/app.dart';
 import 'app/app_controller.dart';
@@ -15,7 +18,6 @@ import 'services/playback/media_playback.dart';
 import 'services/speech/speech_services.dart';
 import 'services/tutor/explanation_provider.dart';
 import 'services/tutor/relay_tutor_engine.dart';
-import 'services/tutor/tutor_engine.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,28 +28,37 @@ Future<void> main() async {
     store: store,
   );
   // Replaceable boundaries. Core learning is local; only the tutor relay
-  // is network-bound and is configured at build time:
+  // is network-bound. Its address comes from the build
   //   flutter run --dart-define=TUTOR_BASE_URL=<relay base url>
-  const relay = String.fromEnvironment('TUTOR_BASE_URL');
+  // and can be changed on the device (saved), e.g. when the demo laptop's
+  // Wi-Fi address changes.
+  const builtIn = String.fromEnvironment('TUTOR_BASE_URL');
+  final prefs = await SharedPreferences.getInstance();
+  const relayKey = 'tutor_relay_url';
+  final relay = RelayEndpoint(
+    RelayEndpoint.parse(prefs.getString(relayKey) ?? builtIn),
+    onSave: (u) async {
+      if (u == null) {
+        await prefs.remove(relayKey);
+      } else {
+        await prefs.setString(relayKey, u.toString());
+      }
+    },
+  );
   final services = AppServices(
     content: BundledContentRepository(),
     transcripts: BundledTranscriptRepository(),
     downloads: const BundledDownloadRepository(),
     vocabulary: await SharedPrefsVocabularyRepository.create(),
     conversations: InMemoryConversationRepository(),
-    tutor: relay.isEmpty
-        ? const UnavailableTutorEngine(
-            'No tutor service is configured in this build.',
-          )
-        : RelayTutorEngine(Uri.parse(relay)),
+    tutor: RelayTutorEngine.at(relay),
+    relay: relay,
     speechIn: PlatformSpeechRecognizer(),
     speechOut: PlatformSpeechSynthesizer(),
     explanations: const BundledExplanationProvider(),
     playbackFactory: defaultPlaybackFactory,
     analytics: const DebugAnalytics(),
-    nativeVoice: relay.isEmpty
-        ? const UnavailableNativeVoice()
-        : RelayNativeVoice(Uri.parse(relay)),
+    nativeVoice: RelayNativeVoice.at(relay),
     recorder: platformHasAudioIo
         ? PcmVoiceRecorder()
         : const UnavailableVoiceRecorder(),

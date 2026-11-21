@@ -37,23 +37,59 @@ export function createServer({ provider, speech = null, allowOrigin = process.en
           provider: provider?.name ?? null,
           model: provider?.model ?? null,
           contract: 1,
+          streaming: true, // POST /v1/tutor/turn/stream (NDJSON)
           speech: speech ? { synthesize: ["am", "om"], transcribe: ["am", "om", "en"] } : null,
         });
       }
-      if (req.method === "POST" && req.url === "/v1/tutor/turn") {
+      if (req.method === "POST" && (req.url === "/v1/tutor/turn" || req.url === "/v1/tutor/turn/stream")) {
         if (!provider) throw new ContractError("unavailable", "No tutor provider configured.", 503);
-        let raw = "";
-        for await (const chunk of req) {
-          raw += chunk;
-          if (raw.length > 32_000) throw new ContractError("bad_request", "Body too large", 413);
-        }
         let body;
-        try { body = JSON.parse(raw); } catch { throw new ContractError("bad_request", "Invalid JSON"); }
+        try { body = JSON.parse((await readBody(req, 32_000)).toString("utf8")); } catch (e) {
+          if (e instanceof ContractError) throw e;
+          throw new ContractError("bad_request", "Invalid JSON");
+        }
         const turn = parseTurnRequest(body);
+        // The app will speak the coaching line in the learner's language:
+        // start that synthesis now so it is ready when the English ends.
+        const prewarm = (out) => {
+          if (body.voice === true && speech?.prewarm && out.coach) speech.prewarm(out.coach, turn.learner.nativeLanguage);
+        };
         const started = Date.now();
-        const out = await provider.turn(turn);
-        console.log(`turn ok session=${turn.sessionId.slice(0, 8)} ms=${Date.now() - started}`); // no content logged
-        return send(200, { ...out, speech: null });
+        if (req.url === "/v1/tutor/turn") {
+          const out = await provider.turn(turn);
+          prewarm(out);
+          console.log(`turn ok session=${turn.sessionId.slice(0, 8)} ms=${Date.now() - started}`); // no content logged
+          return send(200, { ...out, speech: null });
+        }
+        // Streaming: NDJSON events. "reply" as soon as the Professor's line
+        // is known (the app starts speaking it), then the full "turn".
+        res.writeHead(200, {
+          "content-type": "application/x-ndjson; charset=utf-8",
+          "cache-control": "no-store",
+          "x-accel-buffering": "no",
+          "access-control-allow-origin": allowOrigin,
+          "access-control-allow-headers": "content-type, x-language",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+        });
+        res.flushHeaders?.();
+        const event = (e) => res.write(JSON.stringify(e) + "\n");
+        let replyMs = null;
+        try {
+          const out = await provider.turn(turn, {
+            onReply: (text) => {
+              replyMs = Date.now() - started;
+              event({ type: "reply", text });
+            },
+          });
+          prewarm(out);
+          event({ type: "turn", turn: { ...out, speech: null } });
+          console.log(`turn ok stream session=${turn.sessionId.slice(0, 8)} replyMs=${replyMs ?? "-"} ms=${Date.now() - started}`);
+        } catch (e) {
+          const err = e instanceof ContractError ? e : new ContractError("provider_error", "Unexpected relay error", 500);
+          console.log(`turn failed stream session=${turn.sessionId.slice(0, 8)} code=${err.code} ms=${Date.now() - started}`);
+          event({ type: "error", error: { code: err.code, message: err.message } });
+        }
+        return res.end();
       }
       if (req.method === "POST" && req.url === "/v1/speech/synthesize") {
         if (!speech) throw new ContractError("unavailable", "No speech provider configured.", 503);

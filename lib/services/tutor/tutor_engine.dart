@@ -13,7 +13,12 @@ class TutorRequest {
     this.sttConfidence,
     this.utteranceLanguage = 'en',
     this.characterId = 'professor',
+    this.wantsVoice = false,
   });
+
+  /// The app will speak the coaching line in the learner's language, so the
+  /// relay may start synthesising it right away (saves seconds per turn).
+  final bool wantsVoice;
 
   /// 'en' when the learner practises English, 'am'/'om' for a question
   /// asked in their own language.
@@ -92,7 +97,15 @@ class TutorException implements Exception {
 /// One conversational tutoring provider. Throws [TutorException].
 abstract interface class TutorEngine {
   Future<TutorAvailability> availability();
-  Future<TutorResponse> respond(TutorRequest request);
+
+  /// [onReply] is called with the Professor's English line as soon as it is
+  /// known, before the rest of the turn (coaching, task, feedback) arrives,
+  /// so the app can start speaking it. Engines that cannot stream simply
+  /// never call it; the full reply is always in the returned response.
+  Future<TutorResponse> respond(
+    TutorRequest request, {
+    void Function(String reply)? onReply,
+  });
 }
 
 /// Used when no relay is configured: honest, never fakes a reply.
@@ -108,8 +121,10 @@ class UnavailableTutorEngine implements TutorEngine {
       TutorAvailability.unavailable(reason);
 
   @override
-  Future<TutorResponse> respond(TutorRequest request) async =>
-      throw TutorException(TutorErrorCode.unavailable, reason);
+  Future<TutorResponse> respond(
+    TutorRequest request, {
+    void Function(String reply)? onReply,
+  }) async => throw TutorException(TutorErrorCode.unavailable, reason);
 }
 
 /// Synthesised audio clip.
