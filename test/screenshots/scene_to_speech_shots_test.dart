@@ -14,8 +14,13 @@ import '../helpers/fakes.dart';
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
 
-Future<void> shot(WidgetTester t, String name) =>
-    expectLater(find.byType(MaterialApp), matchesGoldenFile('out/$name.png'));
+Future<void> shot(WidgetTester t, String name) async {
+  await precacheCast(t);
+  await expectLater(
+    find.byType(MaterialApp),
+    matchesGoldenFile('out/$name.png'),
+  );
+}
 
 Future<void> precachePoster(WidgetTester t) async {
   await t.runAsync(() async {
@@ -148,7 +153,7 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('speak_start')));
     await t.pumpAndSettle();
-    await t.tap(find.byKey(const ValueKey('speak_talk')));
+    // Live mode already heard the learner after the opening line.
     await t.pumpAndSettle();
     await shot(t, '39_professor_session_ui');
   });

@@ -32,6 +32,11 @@ flutter:
     - assets/content/
     - assets/content/bus_stop_hello/
     - assets/content/bus_stop_hello/translations/
+    # Human cast artwork (see lib/features/mascot/characters.dart)
+    - assets/characters/professor/
+    - assets/characters/spark/
+    - assets/characters/wry/
+    - assets/characters/beat/
 
   fonts:
     - family: Nunito

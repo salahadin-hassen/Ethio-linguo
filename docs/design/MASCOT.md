@@ -1,3 +1,24 @@
+# Character Cast (current)
+
+> **Status (2026-11-21):** the app uses the **human cast** from the team's character sheet. The animal concepts (Buddy, Walia, Fable and Riddle) are deliberately **not used**. The vector "Gela" mascot described further down is retired. `mascot_painter.dart` is kept for reference only and is not rendered.
+
+![Cast sheet](../screenshots/mascot_sheet.png)
+
+| Character | Role in the app | Poses (assets) |
+|---|---|---|
+| **The Professor** | The AI tutor in Speak; also "thinking" states | teaching, thinking, correct |
+| **Spark** | Welcome and companion: greetings, happy, excited | speaking, excited, laughing |
+| **Wry** | Study partner: empty states, confusion, encouragement | idle, confused, correct |
+| **Beat** | Celebrations and rewards | listening, speaking, celebrating |
+
+- **Assets:** `assets/characters/<member>/<pose>.png`, transparent and cut from the sheet.
+- **Code:** `lib/features/mascot/characters.dart`. `castForMood` picks who appears for each `MascotMood`. `Mascot(character: CastMember.professor, …)` pins one person, as the Speak tab does.
+- **Image quality:** the sources are about 110 px tall per pose, upscaled 3×, so they look soft at large sizes such as the welcome screen. Replace them with high-resolution or vector exports using the same file names. No code changes are needed.
+
+---
+
+## Retired concept (milestone 1)
+
 # Mascot & Character System
 
 > Status: **working concept**. Name, final proportions and production animation are not final.

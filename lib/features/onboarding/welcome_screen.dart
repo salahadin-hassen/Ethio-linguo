@@ -135,7 +135,7 @@ class _Hero extends StatelessWidget {
             child: Mascot(
               mood: MascotMood.welcome,
               size: 260,
-              semanticLabel: 'Gela the mascot waving hello',
+              semanticLabel: 'Spark waving hello',
             ),
           ),
           const Positioned(

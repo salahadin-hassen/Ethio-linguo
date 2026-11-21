@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:ethio_linguo/features/mascot/mascot.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 /// Loads the app's bundled fonts into the test engine so rendered output
 /// (and Ethiopic glyph checks) use the real typefaces instead of Ahem boxes.
@@ -35,4 +38,18 @@ String? _materialIconsPath() {
     '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
   );
   return f.existsSync() ? f.path : null;
+}
+
+/// Decodes every cast image up front so golden screenshots show them
+/// (image decoding is real async work outside the test's fake clock).
+Future<void> precacheCast(WidgetTester t) async {
+  await t.runAsync(() async {
+    final ctx = t.element(find.byType(MaterialApp).first);
+    for (final m in CastMember.values) {
+      for (final p in availablePoses[m]!) {
+        await precacheImage(AssetImage(characterAsset(m, p)), ctx);
+      }
+    }
+  });
+  await t.pump();
 }

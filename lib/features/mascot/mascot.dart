@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/motion/motion.dart';
 import 'mascot_mood.dart';
-import 'mascot_painter.dart';
+import 'characters.dart';
 
+export 'characters.dart';
 export 'mascot_mood.dart';
 
-/// The mascot widget. Idle motion (breathing, waving, blinking) loops while
-/// [animate] is true and the OS has not requested reduced motion. Changing
-/// [mood] cross-fades with a small pop so expression changes read clearly.
+/// A cast character (human cast, see characters.dart). [character] pins a
+/// specific person (e.g. the Professor in Speak); otherwise the mood picks
+/// who appears. A gentle idle bob loops while [animate] is true and the OS
+/// has not requested reduced motion. Changes cross-fade with a small pop.
 class Mascot extends StatefulWidget {
   const Mascot({
     super.key,
@@ -18,8 +20,10 @@ class Mascot extends StatefulWidget {
     this.size = 160,
     this.animate = true,
     this.semanticLabel,
+    this.character,
   });
 
+  final CastMember? character;
   final MascotMood mood;
   final double size;
   final bool animate;
@@ -68,19 +72,23 @@ class _MascotState extends State<Mascot> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  /// A quick blink near the end of each loop.
-  double _blinkAt(double t) {
-    const start = 0.86, end = 0.94;
-    if (t < start || t > end) return 0;
-    return math.sin((t - start) / (end - start) * math.pi);
-  }
-
   @override
   Widget build(BuildContext context) {
     final reduced = Motion.reduced(context);
+    final (member, pose) = widget.character == null
+        ? castForMood(widget.mood)
+        : (widget.character!, poseFor(widget.character!, widget.mood));
+    final image = Image.asset(
+      characterAsset(member, pose),
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      excludeFromSemantics: true,
+      gaplessPlayback: true,
+    );
     return Semantics(
       image: true,
-      label: widget.semanticLabel ?? 'Mascot, ${widget.mood.name}',
+      label:
+          widget.semanticLabel ?? '${member.displayName}, ${widget.mood.name}',
       child: AnimatedSwitcher(
         duration: Motion.of(context, Motion.medium),
         switchInCurve: Motion.bouncy,
@@ -93,19 +101,22 @@ class _MascotState extends State<Mascot> with SingleTickerProviderStateMixin {
           ),
         ),
         child: RepaintBoundary(
-          key: ValueKey(widget.mood),
+          key: ValueKey((member, pose)),
           child: SizedBox.square(
             dimension: widget.size,
             child: reduced || !widget.animate
-                ? CustomPaint(painter: MascotPainter(mood: widget.mood))
+                ? image
                 : AnimatedBuilder(
                     animation: _loop,
-                    builder: (_, _) => CustomPaint(
-                      painter: MascotPainter(
-                        mood: widget.mood,
-                        t: _loop.value,
-                        blink: _blinkAt(_loop.value),
+                    child: image,
+                    builder: (_, child) => Transform.translate(
+                      offset: Offset(
+                        0,
+                        -math.sin(_loop.value * 2 * math.pi).abs() *
+                            widget.size *
+                            0.025,
                       ),
+                      child: child,
                     ),
                   ),
           ),
