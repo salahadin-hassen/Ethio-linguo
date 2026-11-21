@@ -1,4 +1,5 @@
 import http from "node:http";
+import net from "node:net";
 import { ContractError, parseTurnRequest } from "./contract.mjs";
 import { createAddisProvider } from "./providers/addis.mjs";
 import { createAddisSpeech } from "./providers/addis_speech.mjs";
@@ -117,6 +118,11 @@ export function createServer({ provider, speech = null, allowOrigin = process.en
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // Slow/high-latency networks (venue Wi-Fi, tethering): Node's default
+  // happy-eyeballs gives each address only 250 ms to connect, so every Addis
+  // call failed with ETIMEDOUT where a TCP connect takes ~0.5-4 s. Measured
+  // 2026-11-21: 0/2 succeed at 250 ms, 2/2 at 3000 ms.
+  net.setDefaultAutoSelectFamilyAttemptTimeout(Number(process.env.CONNECT_ATTEMPT_MS || 3000));
   // TUTOR_PROVIDER=addis|anthropic (default: whichever key is present, Addis first).
   const choice = process.env.TUTOR_PROVIDER || (process.env.ADDIS_API_KEY ? "addis" : "anthropic");
   const provider =
