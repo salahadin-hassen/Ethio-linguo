@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../app/app_scope.dart';
 import '../../../core/components/brand_icons.dart';
 import '../../../core/components/progress_bar.dart';
-import '../../../core/components/speech_bubble.dart';
 import '../../../core/components/stat_pill.dart';
 import '../../../core/components/tibeb_band.dart';
 import '../../../core/theme/app_colors.dart';
@@ -68,9 +67,11 @@ class _HomeHeaderState extends State<HomeHeader> {
     final sounds = ServicesScope.of(context).sounds;
 
     return Container(
+      // Calm, light header (Duolingo-like): stats, greeting, a single line
+      // from Spark. No hero block, no chat bubble.
       decoration: const BoxDecoration(
-        color: AppColors.indigo,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.outline, width: 2)),
       ),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
@@ -91,16 +92,16 @@ class _HomeHeaderState extends State<HomeHeader> {
                     value: app.streak,
                     muted: app.streak == 0,
                     semanticLabel: '${app.streak} day streak',
-                    color: AppColors.ivory,
-                    background: AppColors.indigoRaised,
+                    color: AppColors.textPrimary,
+                    background: AppColors.surfaceSunken,
                   ),
                   const SizedBox(width: Space.xs),
                   StatPill(
                     icon: BrandIconKind.xp,
                     value: p.totalXp,
                     semanticLabel: '${p.totalXp} XP',
-                    color: AppColors.ivory,
-                    background: AppColors.indigoRaised,
+                    color: AppColors.textPrimary,
+                    background: AppColors.surfaceSunken,
                   ),
                   const Spacer(),
                   ListenableBuilder(
@@ -113,7 +114,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                         sounds.enabled
                             ? Icons.volume_up_rounded
                             : Icons.volume_off_rounded,
-                        color: AppColors.onIndigoMuted,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -122,8 +123,8 @@ class _HomeHeaderState extends State<HomeHeader> {
                     value: p.hearts,
                     semanticLabel:
                         '${p.hearts} of ${LearnerProgress.maxHearts} hearts',
-                    color: AppColors.ivory,
-                    background: AppColors.indigoRaised,
+                    color: AppColors.textPrimary,
+                    background: AppColors.surfaceSunken,
                   ),
                 ],
               ),
@@ -145,7 +146,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                         Text(
                           '${app.native.greeting}! ${_partOfDay(hour)}',
                           style: AppType.headline.copyWith(
-                            color: AppColors.ivory,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: Space.xs),
@@ -166,15 +167,11 @@ class _HomeHeaderState extends State<HomeHeader> {
                             key: ValueKey(message),
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SpeechBubble(
+                              Text(
+                                message,
                                 key: const ValueKey('spark_bubble'),
-                                text: message,
-                                tail: BubbleTail.bottomRight,
-                                border: false,
-                                color: AppColors.indigoRaised,
-                                textColor: AppColors.ivory,
-                                style: AppType.bodySmall.copyWith(
-                                  fontWeight: FontWeight.w700,
+                                style: AppType.body.copyWith(
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                               if (native != null)
@@ -186,7 +183,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                                   child: Text(
                                     native,
                                     style: AppType.caption.copyWith(
-                                      color: AppColors.onIndigoMuted,
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
                                 ),
@@ -221,7 +218,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                                 child: AppProgressBar(
                                   value: level.fraction,
                                   color: AppColors.gold,
-                                  track: AppColors.indigoRaised,
+                                  track: AppColors.surfaceSunken,
                                   height: 10,
                                 ),
                               ),
@@ -229,7 +226,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                               Text(
                                 '${level.xpIntoLevel}/${level.xpForLevel}',
                                 style: AppType.caption.copyWith(
-                                  color: AppColors.onIndigoMuted,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                             ],
@@ -243,14 +240,14 @@ class _HomeHeaderState extends State<HomeHeader> {
                     key: const ValueKey('home_spark'),
                     character: CastMember.spark,
                     state: line.state,
-                    size: 118,
+                    size: 84,
                     onTap: _onSparkTap,
                     semanticLabel: 'Spark says: $message. Tap for a tip.',
                   ),
                 ],
               ),
             ),
-            const TibebBand(height: 10),
+            const TibebBand(height: 4),
           ],
         ),
       ),
