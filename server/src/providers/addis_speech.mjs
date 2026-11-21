@@ -65,6 +65,26 @@ function decodeMp3(mp3, ffmpeg = process.env.FFMPEG || "ffmpeg") {
   });
 }
 
+/// Lowers pitch by PROFESSOR_PITCH (default 0.86) keeping tempo; null if
+/// ffmpeg is unavailable (the original voice is used then).
+function deepen(mp3, ffmpeg = process.env.FFMPEG || "ffmpeg") {
+  const f = Number(process.env.PROFESSOR_PITCH || 0.86);
+  if (!(f > 0.5 && f < 1)) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let p;
+    try {
+      p = spawn(ffmpeg, ["-loglevel", "error", "-i", "pipe:0", "-af", `aresample=44100,asetrate=44100*${f},aresample=44100,atempo=${(1 / f).toFixed(4)}`, "-c:a", "libmp3lame", "-b:a", "96k", "-f", "mp3", "pipe:1"], { stdio: ["pipe", "pipe", "ignore"] });
+    } catch { return resolve(null); }
+    const out = [];
+    const timer = setTimeout(() => { p.kill("SIGKILL"); resolve(null); }, 5000);
+    p.on("error", () => { clearTimeout(timer); resolve(null); });
+    p.stdout.on("data", (c) => out.push(c));
+    p.on("close", (code) => { clearTimeout(timer); const b = Buffer.concat(out); resolve(code === 0 && b.length > 200 ? b : null); });
+    p.stdin.on("error", () => {});
+    p.stdin.end(mp3);
+  });
+}
+
 /// Fallback when ffmpeg is missing: each MP3 granule's global_gain (from the
 /// frame side info) tracks loudness roughly (r ~ 0.6 against decoded RMS on
 /// Addis clips). Coarser than decoding, still measured from the real audio.
@@ -157,10 +177,13 @@ export function createAddisSpeech({ apiKey = process.env.ADDIS_API_KEY, fetchImp
     const { mp3, meta } = unframeMp3Stream(Buffer.from(await res.arrayBuffer()));
     if (mp3.length < 200) throw new ContractError("provider_error", "No audio returned.", 502);
     const pcm = await decode(mp3);
+    // The Professor's voice: pitched down (older, deeper), same tempo and
+    // length, so the loudness envelope still lines up. Needs ffmpeg.
+    const deep = (await deepen(mp3)) ?? mp3;
     const env = pcm ? pcmEnvelope(pcm, 16000) : null;
     return {
       mimeType: "audio/mpeg",
-      audioBase64: mp3.toString("base64"),
+      audioBase64: deep.toString("base64"),
       durationSeconds: meta?.duration_seconds ?? null,
       envelope: env ? { ...env, source: "pcm" } : mp3GainEnvelope(mp3),
     };

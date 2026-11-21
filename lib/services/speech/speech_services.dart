@@ -111,7 +111,9 @@ class PlatformSpeechSynthesizer implements SpeechSynthesizer {
     if (!_supported) return false;
     try {
       await _tts.awaitSpeakCompletion(true);
-      await _tts.setSpeechRate(kIsWeb ? 0.9 : 0.45);
+      // The Professor: an older, calm, lower voice.
+      await _tts.setSpeechRate(kIsWeb ? 0.85 : 0.42);
+      await _tts.setPitch(0.72);
       _ok = true;
     } catch (_) {
       _ok = false;
