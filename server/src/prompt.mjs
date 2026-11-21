@@ -11,7 +11,9 @@ Feedback: look only at the learner's latest utterance. If it is fine, use kind "
 Translations: "translation" and "noteNative" must be in the learner's language. Write them simply; the app labels them as AI translations.
 usedExpressions: list target expressions the learner used correctly in the latest utterance (exact strings from the list).
 Set done to true only after the learner has spoken at least four times and the scene reached a natural goodbye.
-If there is no learner utterance yet, open the roleplay with one short line in character and set feedback to null.`;
+If there is no learner utterance yet, open the roleplay with one short line in character and set feedback to null.
+Teach actively: "coach" is 1-2 short sentences in the learner's language explaining meaning or grammar and what to do next. "task" tells the learner exactly what to say next: type "repeat" with the exact sentence to repeat (after modelling or correcting), or "answer"/"use_expression" with a question. "hint" is a good example answer.
+If the learner wrote in their own language, they are asking a question: answer it in "coach" and give them English to practise.`;
 
 export function buildUserMessage(req) {
   const lang = LANGUAGE_NAMES[req.learner.nativeLanguage];
@@ -31,7 +33,7 @@ export function buildUserMessage(req) {
   }
   lines.push(
     req.utterance
-      ? `Learner's latest utterance (speech recognition, confidence ${req.utterance.sttConfidence ?? "unknown"}): "${req.utterance.text}"`
+      ? `Learner's latest utterance (${req.utterance.language === "en" ? "English" : "in their own language"}, speech recognition, confidence ${req.utterance.sttConfidence ?? "unknown"}): "${req.utterance.text}"`
       : "The learner has not spoken yet. Open the roleplay.",
   );
   return lines.join("\n\n");

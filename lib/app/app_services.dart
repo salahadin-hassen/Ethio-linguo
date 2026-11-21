@@ -5,6 +5,7 @@ import '../data/repositories/content_repository.dart';
 import '../data/repositories/conversation_repository.dart';
 import '../data/repositories/vocabulary_repository.dart';
 import '../services/analytics/analytics.dart';
+import '../services/audio/audio_services.dart';
 import '../services/playback/media_playback.dart';
 import '../services/speech/speech_services.dart';
 import '../services/tutor/explanation_provider.dart';
@@ -26,6 +27,9 @@ class AppServices {
     required this.explanations,
     required this.playbackFactory,
     required this.analytics,
+    this.nativeVoice = const UnavailableNativeVoice(),
+    this.recorder = const UnavailableVoiceRecorder(),
+    this.clipPlayer = const SilentAudioClipPlayer(),
   });
 
   /// Offline-safe defaults for tests and previews: no plugins, no network.
@@ -38,7 +42,13 @@ class AppServices {
     SpeechSynthesizer? speechOut,
     MediaPlaybackFactory? playbackFactory,
     Analytics? analytics,
+    NativeVoice? nativeVoice,
+    VoiceRecorder? recorder,
+    AudioClipPlayer? clipPlayer,
   }) => AppServices(
+    nativeVoice: nativeVoice ?? const UnavailableNativeVoice(),
+    recorder: recorder ?? const UnavailableVoiceRecorder(),
+    clipPlayer: clipPlayer ?? const SilentAudioClipPlayer(),
     content: content ?? BundledContentRepository(),
     transcripts: transcripts ?? BundledTranscriptRepository(),
     downloads: const BundledDownloadRepository(),
@@ -64,6 +74,11 @@ class AppServices {
   final ExplanationProvider explanations;
   final MediaPlaybackFactory playbackFactory;
   final Analytics analytics;
+
+  /// Amharic / Afaan Oromo voice for the Professor (speak + transcribe).
+  final NativeVoice nativeVoice;
+  final VoiceRecorder recorder;
+  final AudioClipPlayer clipPlayer;
 }
 
 class ServicesScope extends InheritedWidget {

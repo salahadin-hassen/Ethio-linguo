@@ -35,7 +35,7 @@ void main() {
 
   test('features never import provider/plugin packages directly', () {
     final banned = RegExp(
-      r"import 'package:(http|speech_to_text|flutter_tts|video_player)/",
+      r"import 'package:(http|speech_to_text|flutter_tts|video_player|record|audioplayers)/",
     );
     final hits = [
       for (final f in dartFiles('lib/features'))

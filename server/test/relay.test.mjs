@@ -73,3 +73,42 @@ test("addis non-JSON reply -> provider_error, bad key -> unavailable", async () 
   const p = createAddisProvider({ apiKey: "x", fetchImpl: async () => new Response("{}", { status: 401 }) });
   await assert.rejects(p.turn(addisReq), (e) => e.code === "unavailable");
 });
+
+test("addis teaching fields are mapped (coach, task, hint)", () => {
+  const text = '{"reply":"Hi!","translation":"ሰላም","coach":"ይህ ሰላምታ ነው።","task_type":"repeat","task_prompt":"Long time no see!","task_prompt_native":"ከተያየን ቆየን!","hint":"Long time no see, Liya!","feedback_kind":"great","note":"Good","used":[]}';
+  const out = parseAddisReply(text, addisReq);
+  assert.equal(out.coach, "ይህ ሰላምታ ነው።");
+  assert.deepEqual(out.task, { type: "repeat", prompt: "Long time no see!", promptNative: "ከተያየን ቆየን!" });
+  assert.equal(out.hint, "Long time no see, Liya!");
+});
+
+test("native-language question gets no grammar feedback", () => {
+  const q = parseTurnRequest({ learner: { nativeLanguage: "am" }, utterance: { text: "ምን ማለት ነው?", language: "am" } });
+  assert.equal(q.utterance.language, "am");
+  assert.match(buildAddisPrompt(q), /asked a question/);
+  const out = parseAddisReply('{"reply":"x","coach":"y","feedback_kind":"grammar","note":"z"}', q);
+  assert.equal(out.feedback, null);
+});
+
+test("speech routes: synthesize + transcribe via provider; 503 without", async () => {
+  const speech = {
+    async synthesize(text, language) { return { mimeType: "audio/mpeg", audioBase64: "AAAA", durationSeconds: 1, text, language }; },
+    async transcribe(bytes, language) { return { text: `got ${bytes.length}`, language }; },
+  };
+  await withServerSpeech(speech, async (base) => {
+    const a = await (await fetch(`${base}/v1/speech/synthesize`, { method: "POST", body: JSON.stringify({ text: "ሰላም", language: "am" }) })).json();
+    assert.equal(a.audioBase64, "AAAA");
+    const t = await (await fetch(`${base}/v1/speech/transcribe?language=om`, { method: "POST", headers: { "content-type": "audio/wav" }, body: new Uint8Array(2000) })).json();
+    assert.deepEqual(t, { text: "got 2000", language: "om" });
+  });
+  await withServerSpeech(null, async (base) => {
+    const r = await fetch(`${base}/v1/speech/synthesize`, { method: "POST", body: "{}" });
+    assert.equal(r.status, 503);
+  });
+});
+
+async function withServerSpeech(speech, fn) {
+  const server = createServer({ provider: fakeProvider, speech }).listen(0);
+  await new Promise((r) => server.once("listening", r));
+  try { await fn(`http://127.0.0.1:${server.address().port}`); } finally { server.close(); }
+}

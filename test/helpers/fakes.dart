@@ -1,5 +1,9 @@
 import 'package:ethio_linguo/data/models/conversation.dart';
 import 'package:ethio_linguo/services/speech/speech_services.dart';
+
+import 'dart:typed_data';
+
+import 'package:ethio_linguo/services/audio/audio_services.dart';
 import 'package:ethio_linguo/services/tutor/tutor_engine.dart';
 
 /// Test double for a LIVE tutor provider. Used only in tests; the app never
@@ -20,15 +24,39 @@ class FakeLiveTutor implements TutorEngine {
       return const TutorResponse(
         replyText: 'Hey! Long time no see! How have you been?',
         replyTranslation: '<ai translation>',
+        coach: '<coaching in learner language>',
+        task: TutorTask(
+          type: TaskType.repeat,
+          prompt: 'Long time no see!',
+          promptNative: '<native>',
+        ),
+        hint: 'Long time no see, Liya!',
       );
     }
     final used = [
       for (final e in r.context.targetExpressions)
         if (r.utterance!.toLowerCase().contains(e.toLowerCase())) e,
     ];
+    if (r.utteranceLanguage != 'en') {
+      return TutorResponse(
+        replyText: 'Good question!',
+        coach: 'Answer to: ${r.utterance}',
+        task: const TutorTask(
+          type: TaskType.answer,
+          prompt: 'How have you been?',
+        ),
+        hint: 'I have been busy.',
+      );
+    }
     return TutorResponse(
       replyText: 'Reply to: ${r.utterance}',
       replyTranslation: '<ai translation>',
+      coach: '<coach>',
+      task: const TutorTask(
+        type: TaskType.answer,
+        prompt: 'How have you been?',
+      ),
+      hint: 'I have been busy with my new job.',
       feedback: used.isEmpty
           ? const TutorFeedback(
               kind: FeedbackKind.grammar,
@@ -41,10 +69,18 @@ class FakeLiveTutor implements TutorEngine {
   }
 }
 
+/// Delivers each phrase once (one per listen); afterwards it keeps
+/// "listening" silently, like a real mic waiting for speech.
 class FakeRecognizer implements SpeechRecognizer {
-  FakeRecognizer({this.ok = true, this.say = 'Long time no see'});
+  FakeRecognizer({
+    this.ok = true,
+    String say = 'Long time no see',
+    List<String>? phrases,
+  }) : _queue = [
+         ...(phrases ?? [say]),
+       ];
   final bool ok;
-  final String say;
+  final List<String> _queue;
   bool _init = false;
 
   @override
@@ -58,6 +94,8 @@ class FakeRecognizer implements SpeechRecognizer {
     required String localeId,
     required void Function(RecognizedSpeech) onResult,
   }) async {
+    if (_queue.isEmpty) return;
+    final say = _queue.removeAt(0);
     onResult(RecognizedSpeech(say.split(' ').first, isFinal: false));
     onResult(RecognizedSpeech(say, confidence: 0.9, isFinal: true));
   }
@@ -77,6 +115,42 @@ class FakeSynth implements SpeechSynthesizer {
   @override
   Future<void> speak(String text, {required String localeId}) async =>
       spoken.add(text);
+  @override
+  Future<void> stop() async {}
+}
+
+class FakeNativeVoice implements NativeVoice {
+  final spoken = <String>[];
+  String transcript = 'catch up ማለት ምን ማለት ነው?';
+  @override
+  Future<bool> available() async => true;
+  @override
+  Future<SpeechClip> synthesize(String text, {required String language}) async {
+    spoken.add('$language:$text');
+    return const SpeechClip([0, 1, 2], 'audio/mpeg');
+  }
+
+  @override
+  Future<String> transcribe(List<int> wav, {required String language}) async =>
+      transcript;
+}
+
+class FakeRecorder implements VoiceRecorder {
+  @override
+  Future<bool> hasPermission() async => true;
+  @override
+  Future<void> start() async {}
+  @override
+  Future<Uint8List?> stop() async => Uint8List(32000);
+  @override
+  Future<void> cancel() async {}
+}
+
+class FakeClipPlayer implements AudioClipPlayer {
+  int plays = 0;
+  @override
+  Future<void> play(Uint8List bytes, {required String mimeType}) async =>
+      plays++;
   @override
   Future<void> stop() async {}
 }

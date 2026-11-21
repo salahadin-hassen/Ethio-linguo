@@ -9,25 +9,46 @@ const ENDPOINT = "https://api.addisassistant.com/api/v1/chat_generate";
 export function buildAddisPrompt(req) {
   const lang = LANGUAGE_NAMES[req.learner.nativeLanguage];
   const lines = [
-    `TASK: You are "the Professor", a warm English teacher helping a ${lang} speaker practise speaking ENGLISH (level ${req.learner.level} of 3).`,
+    `TASK: You are "the Professor", a patient, encouraging English teacher for a ${lang} speaker (English level ${req.learner.level} of 3). The goal is that the learner SPEAKS English as much as possible and understands why.`,
+    `Teaching method, one small step per turn:
+1. MODEL: show a useful English sentence from the scene.
+2. REPEAT: ask the learner to repeat it exactly (task type "repeat").
+3. USE: ask a roleplay question they answer using the expression (task type "answer" or "use_expression").
+4. CORRECT: if they make a mistake, explain briefly in ${lang}, then ask them to repeat the corrected sentence (task type "repeat").
+Move on to the next target expression once one is used correctly.`,
   ];
   if (req.lesson) {
-    lines.push(`Roleplay this scene; you play the other character and the learner plays one of them. Scene: ${req.lesson.sceneSummary}`);
+    lines.push(`Scene for the roleplay (you play the other character): ${req.lesson.sceneSummary}`);
     if (req.lesson.transcript.length) lines.push(`Original dialogue:\n${req.lesson.transcript.join("\n")}`);
   } else {
-    lines.push("Have a friendly everyday small-talk conversation in English.");
+    lines.push("No scene: practise everyday greetings and small talk.");
   }
-  if (req.targetExpressions.length) lines.push(`Encourage the learner to use: ${req.targetExpressions.map((e) => `"${e}"`).join(", ")}.`);
-  if (req.focusExpression) lines.push(`Start by practising "${req.focusExpression}".`);
+  if (req.targetExpressions.length) lines.push(`Target expressions to teach: ${req.targetExpressions.map((e) => `"${e}"`).join(", ")}.`);
+  if (req.focusExpression) lines.push(`Start with "${req.focusExpression}".`);
   if (req.history.length) {
     lines.push("Conversation so far:\n" + req.history.map((t) => `${t.speaker === "tutor" ? "Professor" : "Learner"}: ${t.text}`).join("\n"));
   }
-  const noteRule = req.utterance
-    ? `The learner just said (speech recognition, may lack punctuation): "${req.utterance.text}". Give one gentle tip about THAT sentence ("great" if it is fine).`
-    : `The learner has not spoken yet: open the roleplay with one short line. Use feedback_kind "none".`;
-  lines.push(noteRule);
+  if (!req.utterance) {
+    lines.push(`The learner has not spoken yet. Greet them warmly, say in ${lang} what you will practise today, then MODEL the first expression and give a "repeat" task. feedback_kind "none".`);
+  } else if (req.utterance.language !== "en") {
+    lines.push(`The learner asked a question in ${lang}: "${req.utterance.text}". Answer it clearly in ${lang} in "coach", then give them an English sentence to practise. feedback_kind "none".`);
+  } else {
+    lines.push(`The learner just said in English (speech recognition, punctuation may be missing): "${req.utterance.text}". Judge THAT sentence: "great" if correct and natural, otherwise "grammar" or "word_choice" with the corrected sentence in "suggestion" and a "repeat" task for it.`);
+  }
   lines.push(`Reply ONLY with this JSON and nothing else:
-{"reply": "<your answer in simple ENGLISH, max 2 short sentences, end with a question>", "translation": "<same answer in ${lang}>", "feedback_kind": "none or great or grammar or word_choice", "note": "<one short tip in ENGLISH>", "note_native": "<the tip in ${lang}>", "suggestion": "<the learner sentence corrected in English, or empty>", "used": [<target expressions the learner used correctly>], "done": false}`);
+{"reply": "<what you say in the roleplay, simple ENGLISH, max 2 short sentences>",
+ "translation": "<reply translated into ${lang}>",
+ "coach": "<1-2 short sentences of teaching in ${lang}: explain meaning/grammar and what to do next>",
+ "task_type": "repeat or answer or use_expression",
+ "task_prompt": "<the exact English sentence to repeat, or the English question to answer>",
+ "task_prompt_native": "<task_prompt in ${lang}>",
+ "hint": "<a good example English answer for the task>",
+ "feedback_kind": "none or great or grammar or word_choice",
+ "note": "<short tip in ENGLISH about the learner sentence, or empty>",
+ "note_native": "<the tip in ${lang}, or empty>",
+ "suggestion": "<corrected learner sentence in English, or empty>",
+ "used": [<target expressions the learner used correctly>],
+ "done": false}`);
   return lines.join("\n\n");
 }
 
@@ -45,9 +66,14 @@ export function parseAddisReply(text, req) {
     throw new ContractError("provider_error", "The tutor returned an empty answer.", 502);
   }
   const kind = ["great", "grammar", "word_choice", "pronunciation"].includes(j.feedback_kind) ? j.feedback_kind : null;
-  const hasNote = req.utterance && kind && typeof j.note === "string" && j.note.trim();
+  const hasNote = req.utterance && req.utterance.language === "en" && kind && typeof j.note === "string" && j.note.trim();
+  const str = (v) => (typeof v === "string" ? v.trim() : "");
+  const taskType = ["repeat", "answer", "use_expression"].includes(j.task_type) ? j.task_type : "answer";
   return {
-    reply: { text: j.reply.trim(), translation: typeof j.translation === "string" ? j.translation.trim() : "" },
+    reply: { text: j.reply.trim(), translation: str(j.translation) },
+    coach: str(j.coach),
+    task: str(j.task_prompt) ? { type: taskType, prompt: str(j.task_prompt), promptNative: str(j.task_prompt_native) } : null,
+    hint: str(j.hint),
     feedback: hasNote
       ? {
           kind,

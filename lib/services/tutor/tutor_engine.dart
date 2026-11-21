@@ -11,8 +11,13 @@ class TutorRequest {
     required this.history,
     this.utterance,
     this.sttConfidence,
+    this.utteranceLanguage = 'en',
     this.characterId = 'professor',
   });
+
+  /// 'en' when the learner practises English, 'am'/'om' for a question
+  /// asked in their own language.
+  final String utteranceLanguage;
 
   final String sessionId;
   final String characterId;
@@ -33,7 +38,17 @@ class TutorResponse {
     this.usedExpressions = const [],
     this.done = false,
     this.speechUrl,
+    this.coach,
+    this.task,
+    this.hint,
   });
+
+  /// Teaching explanation in the learner's language (AI-generated).
+  final String? coach;
+  final TutorTask? task;
+
+  /// A sample English answer for [task].
+  final String? hint;
 
   final String replyText;
   final String? replyTranslation;
@@ -95,4 +110,37 @@ class UnavailableTutorEngine implements TutorEngine {
   @override
   Future<TutorResponse> respond(TutorRequest request) async =>
       throw TutorException(TutorErrorCode.unavailable, reason);
+}
+
+/// Synthesised audio clip.
+class SpeechClip {
+  const SpeechClip(this.bytes, this.mimeType);
+  final List<int> bytes;
+  final String mimeType;
+}
+
+/// Native-language voice (Amharic / Afaan Oromo) for the Professor:
+/// speaking coaching lines and transcribing learners' questions.
+abstract interface class NativeVoice {
+  Future<bool> available();
+  Future<SpeechClip> synthesize(String text, {required String language});
+  Future<String> transcribe(List<int> wav, {required String language});
+}
+
+class UnavailableNativeVoice implements NativeVoice {
+  const UnavailableNativeVoice();
+  @override
+  Future<bool> available() async => false;
+  @override
+  Future<SpeechClip> synthesize(String text, {required String language}) =>
+      throw const TutorException(
+        TutorErrorCode.unavailable,
+        'No voice service.',
+      );
+  @override
+  Future<String> transcribe(List<int> wav, {required String language}) =>
+      throw const TutorException(
+        TutorErrorCode.unavailable,
+        'No voice service.',
+      );
 }

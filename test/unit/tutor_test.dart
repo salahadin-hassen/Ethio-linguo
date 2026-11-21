@@ -109,7 +109,13 @@ void main() {
     Future<
       (TutorSessionController, InMemoryProgressStore, AppServices, FakeSynth)
     >
-    make(TutorEngine engine) async {
+    make(
+      TutorEngine engine, {
+      bool live = false,
+      List<String> phrases = const ['Long time no see'],
+      FakeNativeVoice? voice,
+      FakeClipPlayer? player,
+    }) async {
       final store = InMemoryProgressStore(
         const LearnerProgress(onboarded: true, native: NativeLanguage.amharic),
       );
@@ -121,16 +127,19 @@ void main() {
       final synth = FakeSynth();
       final services = AppServices.inMemory(
         tutor: engine,
-        speechIn: FakeRecognizer(),
+        speechIn: FakeRecognizer(phrases: phrases),
         speechOut: synth,
         analytics: RecordingAnalytics(),
+        nativeVoice: voice,
+        recorder: FakeRecorder(),
+        clipPlayer: player,
       );
-      return (
-        TutorSessionController(context: ctx, services: services, progress: app),
-        store,
-        services,
-        synth,
-      );
+      final c = TutorSessionController(
+        context: ctx,
+        services: services,
+        progress: app,
+      )..liveMode = live;
+      return (c, store, services, synth);
     }
 
     test(
@@ -141,12 +150,15 @@ void main() {
         await c.start();
         expect(c.state, TutorState.idle);
         expect(c.turns.single.speaker, Speaker.tutor);
+        expect(c.currentTask!.type, TaskType.repeat);
         expect(synth.spoken, hasLength(1)); // opening line spoken aloud
 
         await c.startListening(); // FakeRecognizer delivers a final result
         await pumpEventQueue();
         expect(c.turns[1].text, 'Long time no see');
         expect(c.turns[1].feedback!.kind, FeedbackKind.great);
+        // "Repeat" task scored locally against the target sentence.
+        expect(c.turns[1].repeatScore!.passed, isTrue);
         expect(tutor.requests.last.context.sceneSummary, ctx.sceneSummary);
 
         await c.sendText('i been busy');
@@ -174,6 +186,59 @@ void main() {
         expect(services.conversations.recent, isEmpty);
       },
     );
+
+    test('live mode: mic re-opens after each reply; coach spoken in native language', () async {
+      final voice = FakeNativeVoice();
+      final player = FakeClipPlayer();
+      final (c, _, _, synth) = await make(
+        FakeLiveTutor(),
+        live: true,
+        phrases: ['long time no', 'I have been busy with my new job'],
+        voice: voice,
+        player: player,
+      );
+      await c.start();
+      await pumpEventQueue();
+      // opening -> heard "long time no" -> reply -> heard 2nd phrase -> reply
+      expect(c.turns.where((t) => t.speaker == Speaker.learner), hasLength(2));
+      expect(c.turns[1].repeatScore!.missing, ['see']);
+      expect(c.turns[1].repeatScore!.passed, isFalse);
+      expect(
+        c.state,
+        TutorState.listening,
+        reason: 'hands-free: waiting again',
+      );
+      expect(voice.spoken.first, startsWith('am:'));
+      expect(player.plays, 3);
+      expect(synth.spoken, hasLength(3));
+    });
+
+    test(
+      'question in the native language is transcribed and answered',
+      () async {
+        final voice = FakeNativeVoice();
+        final tutor = FakeLiveTutor();
+        final (c, _, _, _) = await make(tutor, voice: voice);
+        await c.start();
+        await c.startNativeQuestion();
+        expect(c.state, TutorState.recordingNative);
+        await c.stopNativeQuestion();
+        expect(tutor.requests.last.utteranceLanguage, 'am');
+        expect(c.turns[1].language, 'am');
+        expect(c.turns.last.coach, contains('catch up'));
+        expect(c.learnerTurns, 0, reason: 'questions are not English practice');
+      },
+    );
+
+    test('corrections can be saved to My Words', () async {
+      final (c, _, services, _) = await make(FakeLiveTutor());
+      await c.start();
+      await c.sendText('i been busy');
+      await c.saveCorrection(c.corrections.single);
+      final e = services.vocabulary.all.single;
+      expect(e.originalExpression, 'I have been busy.');
+      expect(e.source.name, 'tutor');
+    });
 
     test('no provider: honest unavailable state, never a fake reply', () async {
       final (c, store, _, synth) = await make(const UnavailableTutorEngine());

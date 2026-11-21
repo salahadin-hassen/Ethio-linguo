@@ -9,6 +9,7 @@ import 'data/repositories/content_repository.dart';
 import 'data/repositories/conversation_repository.dart';
 import 'data/repositories/vocabulary_repository.dart';
 import 'services/analytics/analytics.dart';
+import 'services/audio/audio_services.dart';
 import 'services/playback/media_playback.dart';
 import 'services/speech/speech_services.dart';
 import 'services/tutor/explanation_provider.dart';
@@ -43,6 +44,15 @@ Future<void> main() async {
     explanations: const BundledExplanationProvider(),
     playbackFactory: defaultPlaybackFactory,
     analytics: const DebugAnalytics(),
+    nativeVoice: relay.isEmpty
+        ? const UnavailableNativeVoice()
+        : RelayNativeVoice(Uri.parse(relay)),
+    recorder: platformHasAudioIo
+        ? PcmVoiceRecorder()
+        : const UnavailableVoiceRecorder(),
+    clipPlayer: platformHasAudioIo
+        ? PlatformAudioClipPlayer()
+        : const SilentAudioClipPlayer(),
   );
   runApp(LearningApp(controller: controller, services: services));
 }
