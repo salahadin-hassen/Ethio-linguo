@@ -1,195 +1,178 @@
-# Integration Contracts
+# Integration Contracts (v2)
 
-**Read this before writing code.** These contracts let three workstreams build in parallel without editing each other's files.
+**Read this before writing code.**
 
-- The code in the listed files *is* the contract, and `test/unit/contracts_test.dart` and `test/widget/routes_contract_test.dart` guard it.
-- **To change a contract:** open a small PR labelled `integration` into `integration/hackathon-mvp`, and post in the team channel. Adding an optional field is fine. Renaming or removing anything needs Senior Tech Lead approval.
+- The code is the contract. `test/unit/architecture_test.dart`, `test/unit/content_and_vocabulary_test.dart`, `test/unit/tutor_test.dart` and `test/widget/routes_contract_test.dart` guard it.
+- To change a contract, open a PR labelled `integration` into `integration/hackathon-mvp`.
+  - Adding an optional field is fine.
+  - Renaming or removing anything needs the Senior Tech Lead's approval.
 
-## 1. Theme and component conventions
+## 1. Theme, components, strings
 
-- Use only the tokens: `AppColors`, `AppType`, `Space`, `Radii`, `Motion` (`lib/core/theme`, `lib/core/motion`). Never hard-code hex colours, font sizes or durations.
-- Coloured text uses the `*Ink` variants. Brand colours are fills with indigo text on top (WCAG rule, `DESIGN_SYSTEM.md`).
-- Reuse `AppButton`, `AppCard`, `Pressable`, `EmptyState`, `showAppSheet`, `SpeechBubble`, `StatPill`, `AppProgressBar`.
-  - E2 and E3 need a new shared component? Build it inside your feature folder first. E1 promotes it to `core/components` later.
-- Every text style already has the Ethiopic fallback. Never set `fontFamily` without `AppType.fallback`.
-- Respect `Motion.reduced(context)`: loops stop, transitions become instant.
-- Touch targets must be at least 48 px. Interactive widgets need `Semantics` labels. Test keys use `ValueKey('<feature>_<thing>')`.
+- Use the tokens only: `AppColors`, `AppType`, `Space`, `Radii`, `Motion`.
+- Coloured text uses the `*Ink` variants. Brand colours are used only as fills, with indigo text on them.
+- Reuse `AppButton`, `AppCard`, `EmptyState`, `showAppSheet`, `SpeechBubble`, `AppProgressBar`, `LabelWithSupport` and `showActivityReward`.
+- Support lines in the learner's language come from `AppStrings` / `S` (`core/l10n`). Never write Amharic or Oromo literals in widgets.
+- Respect `Motion.reduced(context)`.
+- Touch targets must be at least 48 px. Interactive widgets need Semantics labels.
+- Test keys follow the pattern `ValueKey('<feature>_<thing>')`.
 
-## 2. Navigation ownership and route names
+## 2. Routes and tabs
 
-| Route | Arguments | Screen | Owner |
-|---|---|---|---|
-| `AppRoutes.welcome` `/welcome` | — | WelcomeScreen | E1 |
-| `AppRoutes.language` `/language` | — | LanguageSelectionScreen | E1 |
-| `AppRoutes.home` `/home` | `HomeTab?` or `int?` | HomeShell | E1 |
-| `AppRoutes.lesson` `/lesson` | `LessonLaunch` | LessonScreen | E1 |
-| `AppRoutes.complete` `/complete` | `LessonReward` | LessonCompleteScreen | E1 |
-| `AppRoutes.discover` `/discover` | — | DiscoverScreen | E2 |
-| `AppRoutes.mediaLesson` `/media-lesson` | `MediaLessonArgs(mediaId)` | MediaLessonScreen | E2 |
-| `AppRoutes.speak` `/speak` | `TutorContext?` | SpeakScreen | E3 |
-| `AppRoutes.myWords` `/my-words` | — | MyWordsScreen | E1 |
-
-- The router is `lib/app/app.dart`. It is **shared**, and only new `case` entries are added to it.
-- **Bottom tabs (E1):** `HomeTab.learn`, `discover`, `speak`, `myWords`, in that order, with keys `nav_Learn`, `nav_Discover`, `nav_Speak`, `nav_My Words`.
-  - The tabs embed `DiscoverScreen()`, `SpeakScreen()` and `MyWordsScreen()` directly. Those screens must work both as a tab (no back button) and as a pushed route.
-  - Achievements and the Word Garden stay reachable from Learn and My Words.
-- **Cross-feature navigation:** use `Navigator.pushNamed(context, AppRoutes.x, arguments: …)` only. Never import another feature's screen.
-- **Handoff from media to speech:** `pushNamed(AppRoutes.speak, arguments: TutorContext(native: …, mediaId: m.id, sceneSummary: m.sceneSummary, targetExpressions: [saved expression en strings]))`.
-
-## 3. Media and subtitle schema (v1)
-
-Each clip lives in its own folder:
-
-```
-assets/content/media/
-  index.json                         {"v":1,"items":["assets/content/media/<id>/manifest.json"]}
-  <id>/manifest.json                 MediaItem JSON (below)
-  <id>/clip.mp4                      H.264/AAC, 720p max, ≤ 10 MB, ≤ 60 s
-  <id>/poster.jpg                    optional, ≤ 150 KB
-```
-
-```json
-{
-  "v": 1,
-  "id": "bus_stop_hello",
-  "title": "Long time no see",
-  "videoAsset": "assets/content/media/bus_stop_hello/clip.mp4",
-  "posterAsset": "assets/content/media/bus_stop_hello/poster.jpg",
-  "durationMs": 32000,
-  "license": { "kind": "original", "attribution": "Recorded by the team, 2026" },
-  "sceneSummary": "Two old friends meet unexpectedly at a bus stop and catch up.",
-  "level": 1,
-  "segments": [
-    {
-      "id": "s1", "startMs": 800, "endMs": 3200, "speaker": "Liya",
-      "en": "Long time no see!",
-      "translations": { "am": "<native speaker>", "om": "<native speaker>" },
-      "expressionIds": ["long_time_no_see"]
-    }
-  ],
-  "expressions": [
-    {
-      "id": "long_time_no_see",
-      "en": "Long time no see",
-      "meaning":     { "am": "<native speaker>", "om": "<native speaker>" },
-      "explanation": { "am": "<native speaker>", "om": "<native speaker>" },
-      "example": "Long time no see, how is your family?",
-      "reviewed": false
-    }
-  ]
-}
-```
-
-Rules:
-
-- Segments are sorted and non-overlapping, and `endMs` is exclusive.
-- `expression.en` appears verbatim in its segment's `en`, so the UI can highlight it.
-- If a translation is missing for a language, show the English line only. Never show a blank or `null`.
-- `<native speaker>` marks a slot for a teammate who speaks the language. Never fill it with unreviewed machine translation without leaving `"reviewed": false`.
-- `license` is required. Only `original` media or explicitly rights-cleared media is allowed.
-
-## 4. Vocabulary schema
-
-`SavedExpression` JSON, persisted under `saved_expressions_v1`:
-
-```json
-{ "id": "long_time_no_see", "en": "Long time no see", "meaning": {"am": "…", "om": "…"},
-  "source": "media", "savedAt": "2026-11-21T10:04:00.000", "contextLine": "Long time no see!",
-  "mediaId": "bus_stop_hello", "segmentId": "s1", "reviewCount": 0 }
-```
-
-Create from media with `SavedExpression.fromMedia(media:, segment:, expression:, now: AppScope.read(context).now)`.
-
-## 5. Repository interfaces and service access
-
-```dart
-final services = ServicesScope.of(context);   // AppServices
-services.media        // MediaRepository: list(), byId(id)
-services.vocabulary   // VocabularyRepository (ChangeNotifier): all, contains, save, remove, markReviewed
-services.tutor        // TutorService: availability(), open(TutorContext)
-AppScope.of(context)  // AppController: native, progress, recordActivity(...)
-```
-
-- Use `ListenableBuilder(listenable: services.vocabulary, …)` to rebuild when words change.
-- Workstreams swap implementations **only in `main.dart`**. Tests use `AppServices.inMemory()`.
-
-## 6. Progress and XP contract
-
-```dart
-await AppScope.read(context).recordActivity(activityId: 'media:<mediaId>', xp: 15);
-await AppScope.read(context).recordActivity(activityId: 'tutor:<mediaId|free>', xp: 20);
-```
-
-- Only `AppController` writes `LearnerProgress`.
-- Award XP once per completed activity. The tutor awards it only after at least 3 learner turns.
-
-## 7. Voice conversation interface
-
-### In the app (Dart, `services/tutor/tutor_service.dart`)
-
-```
-TutorService.availability() -> TutorAvailability{live, reason?}
-TutorService.open(TutorContext) -> TutorSession
-TutorSession.state : ValueListenable<TutorState>   idle|connecting|listening|thinking|speaking|ended|unavailable|error
-TutorSession.turns : ValueListenable<List<TutorTurn>>
-start() · startListening() · stopListening() · sendText(text) · end() · errorMessage
-```
-
-- E3 adds the live implementation (on-device STT → relay → on-device TTS) in new files under `services/tutor/`.
-- `UnavailableTutorService` remains the fallback when `TUTOR_BASE_URL` is unset or `/v1/health` fails.
-
-### Relay HTTP API (`server/`)
-
-`GET /v1/health` returns `200 {"ok": true, "provider": "anthropic", "model": "<id>"}`.
-
-`POST /v1/tutor/turn` (`Content-Type: application/json`, client timeout 15 s):
-
-```json
-{
-  "sessionId": "uuid",
-  "character": "professor",
-  "context": { "nativeLanguage": "am", "mediaId": "bus_stop_hello",
-               "sceneSummary": "…", "targetExpressions": ["Long time no see"], "learnerLevel": 1 },
-  "history": [ { "speaker": "tutor", "text": "…" }, { "speaker": "learner", "text": "…" } ],
-  "utterance": { "text": "long time no see how are you", "sttConfidence": 0.82 }
-}
-```
-
-`utterance: null` asks for the Professor's opening line.
-
-The response is `200`:
-
-```json
-{
-  "reply": { "text": "It really has been a long time! …", "translation": "…" },
-  "feedback": { "kind": "grammar", "note": "…", "suggestion": "Long time no see! How are you?", "noteNative": "…" },
-  "usedExpressions": ["Long time no see"],
-  "done": false
-}
-```
-
-An error returns `4xx/5xx` with `{"error": {"code": "unavailable|rate_limited|bad_request|provider_error", "message": "…"}}`.
-
-- The relay keeps the API key server-side, enforces JSON output, and caps the reply at about 2 sentences so it can be spoken.
-- The Professor persona and prompt live **only in the relay**.
-- `translation` and `noteNative` are AI-generated, so the UI labels them "AI translation".
-
-## 8. Local persistence contract
-
-| Key (SharedPreferences) | Owner | Content |
+| Route | Arguments | Screen |
 |---|---|---|
-| `learner_progress_v1` | AppController | `LearnerProgress` JSON |
-| `saved_expressions_v1` | VocabularyRepository | `SavedExpression` list |
+| `/welcome`, `/language` | — | onboarding |
+| `/home` | `HomeTab?` or `int?` | `HomeShell` |
+| `/lesson`, `/complete` | `LessonLaunch`, `LessonReward` | path lessons |
+| `/discover` | — | `DiscoverScreen` |
+| `/media-lesson` | `MediaLessonArgs(contentId)` | `MediaLessonScreen` |
+| `/speak` | `TutorContext?` | `SpeakScreen` |
+| `/my-words` | — | `MyWordsScreen` |
+| `/revision` | — | `RevisionScreen` |
+| `/garden`, `/achievements` | — | Word Garden, Badges |
 
-- New keys follow the pattern `<feature>_<thing>_v<n>` and are added to this table by PR.
-- No feature reads another feature's key directly.
+- Tabs (`HomeTab`): `home`, `learn`, `discover`, `speak`, `myWords`. Their keys are `nav_Home`, `nav_Learn`, `nav_Discover`, `nav_Speak` and `nav_My Words`.
+- Features navigate only with `Navigator.pushNamed(AppRoutes.x, arguments: …)`. They never import another feature's screen.
 
-## 9. Error-state conventions
+## 3. Content package schema (v2)
 
-- **Never crash on bad data.** Repositories return empty or `null` and log in debug.
-- Show a missing clip, an empty list or a failed load with `EmptyState`: a mascot, one plain sentence and at most one action (e.g. "Try again").
-- Network failures in Speak:
-  - Show `TutorState.error` with `errorMessage` and a **Retry** button. Keep the transcript.
-  - After 2 consecutive failures, switch to `unavailable`.
-- Microphone permission denied: explain why the mic is needed, offer `sendText` (typed input) and link to the system settings.
-- Never present scripted or offline content as live AI. Label it "Offline practice".
+```
+assets/content/catalog.json                    {"schemaVersion":2,"items":["assets/content/<id>/manifest.json"]}
+assets/content/<id>/manifest.json              LearningContent
+assets/content/<id>/transcript.en.json         source segments + expressions
+assets/content/<id>/translations/<code>.json   one file per learner language
+assets/content/<id>/clip.mp4, poster.jpg
+```
+
+`manifest.json` (abridged from `bus_stop_hello`):
+
+```json
+{ "schemaVersion": 2, "id": "bus_stop_hello", "type": "video", "title": "Long time no see",
+  "sourceLanguage": "en", "difficulty": 1, "durationMs": 15733, "contentVersion": 1, "offlineAvailable": true,
+  "sceneSummary": "Two old friends, Liya and Dawit, meet by chance at a city bus stop…",
+  "speakers": { "liya": "Liya", "dawit": "Dawit" },
+  "media": { "id": "bus_stop_hello_video", "type": "video", "durationMs": 15733,
+             "localAsset": "assets/content/bus_stop_hello/clip.mp4", "posterAsset": "…/poster.jpg" },
+  "transcript": "assets/content/bus_stop_hello/transcript.en.json",
+  "translations": { "am": { "status": "draft", "translator": "…" }, "om": { "status": "draft" } },
+  "rights": { "creator": "…", "rightsHolder": "…", "licenseType": "original", "attribution": "…",
+              "offlineUseAllowed": true, "derivativeTranslationsAllowed": true, "components": ["…"] } }
+```
+
+`transcript.en.json`:
+
+```json
+{ "mediaId": "bus_stop_hello_video", "language": "en",
+  "segments": [ { "id": "s1", "startMs": 600, "endMs": 2897, "speakerId": "liya",
+                  "text": "Hey, Dawit! Long time no see!", "expressionIds": ["long_time_no_see"] } ],
+  "expressions": [ { "id": "long_time_no_see", "segmentId": "s1", "text": "Long time no see",
+                     "example": "Long time no see! How is your family?" } ] }
+```
+
+`translations/am.json`:
+
+```json
+{ "language": "am", "status": "draft",
+  "segments": { "s1": "ሄይ ዳዊት! ከተያየን ቆየን!" },
+  "expressions": { "long_time_no_see": { "meaning": "ከተያየን ቆየን", "context": "…", "example": "…" } } }
+```
+
+Validation runs on load:
+- Segments must be sorted and must not overlap. `endMs` is exclusive.
+- `expression.text` must appear in its segment.
+- Bundled content must have `offlineUseAllowed: true`.
+- A missing translation shows English only, never a blank.
+
+## 4. Vocabulary schema (`vocabulary_entries_v2`)
+
+See `VocabularyEntry.toJson()`. Create entries only with `VocabularyEntry.fromExpression(...)` and `newLocalId()`. The dedupe key is `expressionId`.
+
+## 5. Services (`ServicesScope.of(context)` → `AppServices`)
+
+```dart
+content        LearningContentRepository   list(), byId()
+transcripts    TranscriptRepository        load(content, languages: [...])
+downloads      DownloadRepository          stateOf(content)
+vocabulary     VocabularyRepository        all, due(now), byExpressionId, save, remove   (ChangeNotifier)
+conversations  ConversationRepository      recent, save
+tutor          TutorEngine                 availability(), respond(TutorRequest)
+speechIn       SpeechRecognizer            initialize, listen, stop, cancel
+speechOut      SpeechSynthesizer           initialize, speak, stop
+explanations   ExplanationProvider         explain(expression, lang)
+playbackFactory MediaPlaybackFactory       (MediaItem) -> MediaPlayback (owner disposes)
+analytics      Analytics                   log(AnalyticsEvent, props)  — ids/counts only
+```
+
+- Implementations are swapped only in `main.dart`. Tests use `AppServices.inMemory(...)`.
+- Repositories may return `SynchronousFuture`, so don't combine them with `Future.wait`.
+
+## 6. Progress contract
+
+```dart
+final reward = await AppScope.read(context).completeActivity(
+  LearningActivity(id: 'media:<id>' | 'revision:<day>' | 'tutor:<id|free>', type: …, native: …),
+  units: <cards reviewed, revision only>,
+);
+showActivityReward(context, reward, title: …);
+```
+
+- XP values live only in `ActivityXp`: media 15, revision 2 per card (capped at 20), tutor 20 (needs at least 3 learner turns). A repeat completion earns one third.
+- Nothing else writes XP, the streak or the completed-activity list. An architecture test enforces this.
+
+## 7. Tutor relay HTTP API v1 (`server/`)
+
+`GET /v1/health` returns `200 {"ok": bool, "provider": "anthropic"|null, "model": string|null, "contract": 1}`.
+
+`POST /v1/tutor/turn`. The request body is at most 32 KB; the server clamps history to 12 turns and target expressions to 8:
+
+```json
+{ "sessionId": "uuid", "character": "professor",
+  "learner": { "nativeLanguage": "am", "targetLanguage": "en", "level": 1 },
+  "lesson": { "contentId": "bus_stop_hello", "title": "Long time no see", "sceneSummary": "…",
+              "transcript": ["Liya: Hey, Dawit! Long time no see!", "…"] },
+  "focusExpression": "Long time no see",
+  "targetExpressions": ["Long time no see", "catch up"],
+  "history": [ { "speaker": "tutor", "text": "…" }, { "speaker": "learner", "text": "…" } ],
+  "utterance": { "text": "i been busy with my new job", "sttConfidence": 0.81 } }
+```
+
+`utterance: null` asks the Professor to open the conversation. A successful call returns `200`:
+
+```json
+{ "reply": { "text": "Oh nice, a new job! What do you do now?", "translation": "<learner language>" },
+  "feedback": { "kind": "grammar", "note": "Say \"I have been\".", "noteNative": "…", "suggestion": "I have been busy with my new job." },
+  "suggestedExpression": null, "usedExpressions": [], "done": false, "speech": null }
+```
+
+An error returns `{"error": {"code": "unavailable|rate_limited|bad_request|provider_error", "message": "…"}}` with status 503, 429, 400/413 or 502.
+
+## 8. Local persistence keys
+
+| Key | Owner |
+|---|---|
+| `learner_progress_v1` | `AppController` / `ProgressStore` |
+| `vocabulary_entries_v2` | `VocabularyRepository` |
+
+## 9. Error states
+
+- Bad data never crashes the app: the affected store resets, or the content item is skipped and logged in debug builds.
+- Lesson load failure shows `EmptyState` with a Back button.
+- Tutor problems:
+  - A tutor failure shows the `error` state with Retry, and the transcript is kept.
+  - After 2 failures, or on `unavailable`, the app switches to the honest unavailable view.
+  - If the microphone is denied, the app falls back to typed input.
+- Nothing scripted is ever presented as live AI.
+
+## 10. Future APIs (drafts only, not implemented)
+
+All future APIs are versioned under `/v1/`. They use bearer auth once accounts exist, and IDs are client-generated UUIDs.
+
+| API | Draft |
+|---|---|
+| Auth | `POST /v1/auth/otp/start {phone}` → `POST /v1/auth/otp/verify {phone, code}` → `{accessToken, refreshToken, learnerId}` |
+| Content catalogue | `GET /v1/catalog?lang=am&since=<contentVersion>` → `[LearningContent summary]` |
+| Translation delivery | `GET /v1/content/{id}/translations/{code}?v=<contentVersion>` → `translations/<code>.json` shape + `TranslationInfo` |
+| Content packages | `GET /v1/content/{id}/package` → signed URL + `sha256` + `sizeBytes` + rights flags (`offlineUseAllowed` gates download) |
+| Vocabulary sync | `POST /v1/sync/vocabulary {since, changes:[VocabularyEntry with dirty=true]}` → `{applied:[ids], serverChanges:[…], cursor}`. Last-write-wins on `updatedAt`, with tombstones for deletes |
+| Progress | `POST /v1/sync/progress {events:[{activityId, xp, at}]}`. XP is an append-only event log; the server recomputes totals |
+| AI conversation | `/v1/tutor/turn` (§7). A streaming `/v1/tutor/stream` (SSE) is possible later for lower latency |

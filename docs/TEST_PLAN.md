@@ -1,72 +1,69 @@
 # Test Plan
 
-Automated checks run on every PR:
-
 ```bash
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
-flutter test
+flutter test                                              # unit + widget + architecture + offline
+flutter test test/screenshots --run-skipped --update-goldens   # regenerate screenshots
+(cd server && npm test)                                   # relay contract tests
 ```
 
-Each PR pastes the results. Manual checks run on the **demo Android phone** at T+4:30 and again after the freeze. Record pass/fail in the integration PR.
+## Automated coverage of the core journey (directive Part 5)
 
-## 1. Functional
-
-| ID | Check | Auto / Manual |
+| # | Check | Test |
 |---|---|---|
-| F1 | Onboarding → language → home for both languages | Auto (existing) |
-| F2 | Lesson flow, XP, streak, hearts, completion | Auto (existing) |
-| F3 | `recordActivity` adds XP and daily XP and extends the streak | Auto (`contracts_test`) |
-| F4 | Saving an expression persists, deduplicates and survives a restart | Auto (`contracts_test`) + manual kill/relaunch |
-| F5 | My Words lists saved items live and shows an empty state | E1 widget test |
-| F6 | Media lesson completion awards 15 XP once | E2 widget test |
+| 1-2 | Select Amharic / Afaan Oromo | `startup_and_onboarding_test`, `scene_to_speech_test` |
+| 3 | Translations change with the language (no Amharic leaks into Oromo) | `scene_to_speech_test` › Afaan Oromo |
+| 4 | Bundled media plays (clock-driven player in tests) | `scene_to_speech_test` |
+| 5 | Subtitles follow playback position, gaps and seeks | `scene_to_speech_test`, `content_and_vocabulary_test` › transcript sync |
+| 6-7 | Select an expression, see the correct contextual translation | `scene_to_speech_test` |
+| 8 | Save the expression | `scene_to_speech_test` |
+| 9-10 | Restart, and saved words persist | `scene_to_speech_test` (fresh repository on the same storage), `content_and_vocabulary_test` |
+| 11 | Complete a revision activity | `scene_to_speech_test` |
+| 12-13 | XP awarded through the central service and persisted | `scene_to_speech_test`, `content_and_vocabulary_test` › central progress |
+| 14 | Learning activity works without internet | `scene_to_speech_test` + `offline_test` (`HttpOverrides` tripwire records 0 attempts) |
+| 15 | AI unavailable is handled gracefully and honestly | `scene_to_speech_test`, `tutor_test` |
 
-## 2. Offline (flight mode, demo phone)
+## Architecture tests (`test/unit/architecture_test.dart`)
 
-- [ ] Cold start in flight mode → home loads with no error.
-- [ ] Learning path lesson playable end to end.
-- [ ] Discover lists the clip; the clip plays; both subtitle tracks show.
-- [ ] Expression sheet opens; Save works; My Words shows it after a relaunch.
-- [ ] Speak shows the honest unavailable state, not a spinner and not fake replies.
-- [ ] Amharic and Oromo text render with no tofu boxes (also covered by `ethiopic_rendering_test`).
+- Each repository and provider implementation satisfies its interface.
+- Features never import `http`, `speech_to_text`, `flutter_tts` or `video_player`, nor the concrete tutor provider.
+- Domain models are never declared inside `lib/features`.
+- XP, streak and completed activities are written only by `AppController`.
+- No hard-coded secrets in `lib`, `assets/content`, `server/src` or `android/app/src`, and `server/.env` is not tracked.
+- Amharic and Oromo UI strings are centralised (legacy files listed explicitly).
+- `offline_test`: network APIs appear only in `relay_tutor_engine.dart`, and only approved dependencies are used.
 
-## 3. Media
+## Tutor (`test/unit/tutor_test.dart`, `server/test/relay.test.mjs`)
 
-| ID | Check |
-|---|---|
-| M1 | The manifest parses (unit test loads every manifest in `index.json`) |
-| M2 | Segments are sorted and non-overlapping, and each `expression.en` occurs in its segment (unit test) |
-| M3 | Subtitles appear within ±250 ms of speech at the start, middle and end (manual, watch twice) |
-| M4 | Pause, seek and replay keep subtitles in sync |
-| M5 | Switching native language changes the second subtitle line |
-| M6 | A missing translation falls back to English only, never blank |
-| M7 | Every item has a `license`, and the clip is original or rights-cleared (review) |
+- The client wire format carries structured lesson context, and replies, feedback and used expressions are parsed.
+- Relay errors map to typed exceptions. The health check fails cleanly when the relay is offline.
+- Session: speech in, reply, speech out; feedback attached to the learner's turn; XP only after 3 or more learner turns; summary saved.
+- Unavailable provider: no turns, no speech, no XP.
+- Failure: the `error` state keeps the transcript, Retry works, and the session becomes unavailable after the second failure.
+- Relay: health, turn envelope, 503 without a provider, request validation and clamping.
 
-## 4. Voice interaction
+## Manual checks on the demo Android phone (not yet run)
 
-| ID | Check |
-|---|---|
-| V1 | `/v1/health` is OK from the phone's network |
-| V2 | The opening line references the scene (`sceneSummary`) |
-| V3 | Hold → speak → release: transcript shows the recognised text, then the reply is spoken and shown |
-| V4 | Feedback appears for a deliberately wrong sentence |
-| V5 | The relay is killed mid-conversation → `error` + Retry, and the transcript is kept |
-| V6 | No `TUTOR_BASE_URL` → `unavailable` state |
-| V7 | Mic permission denied → explanation and typed fallback |
-| V8 | Latency from release to reply is under 4 s on demo Wi-Fi (measure 5 turns) |
-| V9 | STT works on the demo phone (check whether offline STT is installed) |
-| V10 | `git grep -nE "sk-|api[_-]?key"` finds no secrets, and the APK contains no provider key |
+### 2. Offline (flight mode)
 
-## 5. Navigation
+- [ ] Cold start → Discover → the clip plays with picture and sound → both subtitle lines appear and stay in sync (within ±250 ms by eye at start, middle and end).
+- [ ] Save 2 expressions → force-stop → relaunch → My Words shows both → review completes with XP.
+- [ ] Speak → offline state shown, with no spinner left hanging.
 
-- [ ] All four tabs open, and keys `nav_Learn`, `nav_Discover`, `nav_Speak`, `nav_My Words` exist.
-- [ ] Every `AppRoutes` route resolves (`routes_contract_test`).
-- [ ] Media → Speak handoff passes `TutorContext`. Back from Speak returns to the media lesson or the reward.
-- [ ] The Android back button never exits mid-lesson without confirmation.
+### 4. Voice
 
-## 6. Regression
+- [ ] Relay `GET /v1/health` is reachable from the phone's network.
+- [ ] **One genuine live turn**: hold, speak "Long time no see", release → transcript → spoken reply that references the bus-stop scene → feedback card.
+- [ ] The microphone permission prompt appears. Denying it falls back to typed input.
+- [ ] Latency from release to reply is under 4 s (measure 5 turns).
+- [ ] Kill the relay mid-conversation → Retry → then the unavailable view.
 
-- [ ] The full `flutter test` suite is green on `integration/hackathon-mvp` after each checkpoint merge.
-- [ ] The milestone-1 journey still works: lesson, completion, garden and badges.
-- [ ] Release APK builds: `flutter build apk --release`.
-- [ ] No layout overflow at 360×640 and at 1.3× text scale on the four tab screens.
+### 6. Regression
+
+- [ ] Milestone-1 lesson path, completion, garden and badges still work.
+- [ ] No layout overflow at 360×640 and at 1.3× text scale on all five tabs and the lesson screen.
+
+## Results log
+
+Fill in from real runs only. See the final engineering report for the 2026-11-21 results.
