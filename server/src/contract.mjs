@@ -50,7 +50,12 @@ export function parseTurnRequest(body) {
       .filter((t) => (t?.speaker === "tutor" || t?.speaker === "learner") && typeof t.text === "string")
       .map((t) => ({ speaker: t.speaker, text: t.text.slice(0, 500) })),
     utterance: body.utterance && typeof body.utterance.text === "string"
-      ? { text: body.utterance.text.slice(0, 500), sttConfidence: typeof body.utterance.sttConfidence === "number" ? body.utterance.sttConfidence : null }
+      ? {
+          text: body.utterance.text.slice(0, 500),
+          sttConfidence: typeof body.utterance.sttConfidence === "number" ? body.utterance.sttConfidence : null,
+          // "en" = practising English; "am"/"om" = asking a question in their own language.
+          language: ["en", "am", "om"].includes(body.utterance.language) ? body.utterance.language : "en",
+        }
       : null,
   };
 }
@@ -59,8 +64,20 @@ export function parseTurnRequest(body) {
 export const TURN_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "feedback", "usedExpressions", "done"],
+  required: ["reply", "coach", "task", "hint", "feedback", "usedExpressions", "done"],
   properties: {
+    coach: { type: "string", description: "Short spoken teaching explanation in the learner's language." },
+    task: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type", "prompt", "promptNative"],
+      properties: {
+        type: { type: "string", enum: ["repeat", "answer", "use_expression"] },
+        prompt: { type: "string", description: "Exact English sentence to repeat, or the question to answer." },
+        promptNative: { type: "string" },
+      },
+    },
+    hint: { type: "string", description: "A sample English answer the learner could say next." },
     reply: {
       type: "object",
       additionalProperties: false,

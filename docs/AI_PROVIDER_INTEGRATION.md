@@ -12,6 +12,32 @@
 
 Until a valid key is configured, the app shows *"The Professor is offline right now"* with an "Offline practice (not AI)" section. It never shows a scripted reply as if it were AI.
 
+## Teaching conversation (live mode)
+
+Each Professor turn returns:
+- `reply`: the English roleplay line, spoken by the device voice
+- `translation`
+- `coach`: 1–2 sentences of teaching in Amharic or Afaan Oromo, **spoken by the Addis voice**
+- `task`: what the learner says next, with type `repeat`, `answer` or `use_expression`
+- `hint`: a sample answer
+- `feedback`: the correction, if any
+
+The method in the prompt is a loop: model → repeat → use → correct → repeat the corrected sentence.
+
+**Live mode** is on by default. After the Professor finishes, the microphone opens by itself. The learner's English goes through the device recogniser and is sent on a pause, so the conversation is hands-free. Tapping the banner interrupts the Professor.
+
+**Repeat drills** are scored on the device. `scoreRepeat` compares the recognised words with the target sentence, so it measures intelligibility, not phonemes. Missing words are highlighted.
+
+**Questions in the learner's own language:** the "Ask in አማርኛ / Afaan Oromoo" button records 16 kHz WAV in memory. The audio goes through `/v1/speech/transcribe` to Addis Scribe, and the Professor answers in `coach`.
+
+**Corrections** can be saved to My Words with source `tutor`. The session summary lists English turns, drills passed, expressions used, and the sentences to remember.
+
+### Speech endpoints (relay)
+
+- `POST /v1/speech/synthesize {text, language: am|om}` returns `{mimeType, audioBase64, durationSeconds}`. It uses Addis Voices (`am-hamen`, `om-ayyaantuu`) and is cached in memory by text.
+- `POST /v1/speech/transcribe?language=am|om|en` takes a raw `audio/wav` body and returns `{text, language}`. It uses Addis Scribe. The audio is forwarded once and never stored or logged.
+- English speech uses the device's speech services. The Addis English voice measured about 21 s, which is too slow for conversation.
+
 ## Flow
 
 ```mermaid
@@ -93,7 +119,8 @@ For production, put the relay behind HTTPS. Android blocks cleartext HTTP in rel
 
 ## Privacy
 
-- Speech is recognised by the operating system's speech service. **The app never records audio to disk and never uploads audio.** Only recognised text goes to the relay.
+- English speech is recognised by the operating system's speech service, and only text goes to the relay.
+- **A question asked in Amharic or Oromo is recorded in memory and sent once to Addis Scribe** through the relay for transcription. It is never written to disk or stored by the app or the relay. The Speak intro screen says so.
   - Note: the platform recogniser itself may use the vendor's cloud. That is disclosed on the Speak intro screen as "speech is recognised on your phone"; this wording should be revisited per platform.
 - The relay is stateless. It logs only timing and a truncated session id, never utterances or replies.
 - Transcripts stay in memory for the session. After a session only a summary is kept (turn count, expressions used, suggestions), also in memory.

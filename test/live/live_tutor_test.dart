@@ -47,6 +47,16 @@ void main() {
       );
       expect(r.replyText, isNotEmpty);
       expect(r.feedback, isNotNull);
+      expect(open.coach, isNotNull, reason: 'teaches in the learner language');
+      expect(open.task, isNotNull);
+      final voice = RelayNativeVoice(engine.baseUrl);
+      expect(await voice.available(), isTrue);
+      final clip = await voice.synthesize(open.coach!, language: lang.code);
+      expect(clip.bytes.length, greaterThan(1000));
+      // ignore: avoid_print
+      print(
+        'COACH[${lang.code}] ${open.coach}\nTASK ${open.task!.type.name}: ${open.task!.prompt}\nVOICE ${clip.bytes.length} bytes ${clip.mimeType}',
+      );
     }, timeout: const Timeout(Duration(seconds: 60)));
   }
 }

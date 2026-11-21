@@ -7,12 +7,14 @@ environment:
   sdk: ^3.13.5
 
 dependencies:
+  audioplayers: ^6.8.1
   flutter:
     sdk: flutter
   flutter_tts: ^4.2.5
   http: ^1.6.0
   # Local key-value persistence (offline). Wrapped behind ProgressStore and
   # VocabularyRepository so it can be swapped for SQLite/Drift later.
+  record: ^7.2.0
   shared_preferences: ^2.3.0
   speech_to_text: ^7.5.0
   video_player: ^2.14.1

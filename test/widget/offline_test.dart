@@ -92,6 +92,8 @@ void main() {
         'flutter_tts', // on-device speech output
         'speech_to_text', // OS speech recognition (tutor only)
         'http', // tutor relay client, isolated in onlineBoundary
+        'record', // native-language questions to the tutor (online only)
+        'audioplayers', // plays the Professor's native-language voice
       });
     });
 

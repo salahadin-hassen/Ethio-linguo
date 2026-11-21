@@ -6,6 +6,7 @@ import 'package:ethio_linguo/data/local/demo_course.dart';
 import 'package:ethio_linguo/data/local/progress_store.dart';
 import 'package:ethio_linguo/data/models/activity.dart';
 import 'package:ethio_linguo/data/models/content.dart';
+import 'package:ethio_linguo/data/models/conversation.dart';
 import 'package:ethio_linguo/data/models/gamification.dart';
 import 'package:ethio_linguo/data/models/language.dart';
 import 'package:ethio_linguo/data/models/progress.dart';
@@ -147,6 +148,23 @@ void main() {
           expressions: const [],
         ),
         throwsFormatException,
+      );
+    });
+  });
+
+  group('repeat scoring', () {
+    test('word-level match with contractions and punctuation', () {
+      final s = scoreRepeat(
+        "I've been busy with my new job.",
+        'i have been busy with my job',
+      );
+      expect(s.missing, ['new']);
+      expect(s.matched, 6);
+      expect(s.passed, isTrue); // 6/7 >= 80%
+      expect(scoreRepeat('Long time no see!', 'long time').passed, isFalse);
+      expect(
+        scoreRepeat('Long time no see!', 'long time no see').passed,
+        isTrue,
       );
     });
   });

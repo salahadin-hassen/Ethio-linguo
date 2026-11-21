@@ -225,9 +225,12 @@ void main() {
     expect(tutor.requests.first.context.focusExpression, 'Long time no see');
     expect(tutor.requests.first.context.transcript, hasLength(6));
 
-    await t.longPress(find.byKey(const ValueKey('speak_talk')));
-    await t.pumpAndSettle();
+    // Live mode: the mic opened by itself after the opening line, heard the
+    // learner, and the Professor answered with a task to do next.
     expect(find.text('Reply to: Long time no see'), findsOneWidget);
+    expect(find.byKey(const ValueKey('speak_repeat_score')), findsOneWidget);
+    expect(find.byKey(const ValueKey('speak_task')), findsOneWidget);
+    expect(find.byKey(const ValueKey('speak_state_listening')), findsOneWidget);
     expect(find.byKey(const ValueKey('speak_feedback')), findsOneWidget);
     expect(find.textContaining('AI translation'), findsWidgets);
     expect(h.store.value!.totalXp, 0, reason: 'no XP for 1 turn');

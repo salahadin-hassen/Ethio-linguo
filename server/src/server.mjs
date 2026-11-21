@@ -1,17 +1,30 @@
 import http from "node:http";
 import { ContractError, parseTurnRequest } from "./contract.mjs";
 import { createAddisProvider } from "./providers/addis.mjs";
+import { createAddisSpeech } from "./providers/addis_speech.mjs";
 import { createAnthropicProvider } from "./providers/anthropic.mjs";
 
-// Stateless tutor relay. Privacy: receives TEXT only (speech is recognised on
-// the device), keeps nothing, and never logs utterances or replies.
-export function createServer({ provider, allowOrigin = process.env.ALLOW_ORIGIN || "*" } = {}) {
+async function readBody(req, max) {
+  const chunks = [];
+  let n = 0;
+  for await (const c of req) {
+    n += c.length;
+    if (n > max) throw new ContractError("bad_request", "Body too large", 413);
+    chunks.push(c);
+  }
+  return Buffer.concat(chunks);
+}
+
+// Stateless tutor relay. Privacy: tutor turns carry TEXT only. The optional
+// /v1/speech/transcribe route forwards a learner's native-language question
+// audio to the speech provider once; nothing is stored or logged.
+export function createServer({ provider, speech = null, allowOrigin = process.env.ALLOW_ORIGIN || "*" } = {}) {
   return http.createServer(async (req, res) => {
     const send = (status, body) => {
       res.writeHead(status, {
         "content-type": "application/json; charset=utf-8",
         "access-control-allow-origin": allowOrigin,
-        "access-control-allow-headers": "content-type",
+        "access-control-allow-headers": "content-type, x-language",
         "access-control-allow-methods": "GET, POST, OPTIONS",
       });
       res.end(body === undefined ? "" : JSON.stringify(body));
@@ -19,7 +32,13 @@ export function createServer({ provider, allowOrigin = process.env.ALLOW_ORIGIN 
     try {
       if (req.method === "OPTIONS") return send(204);
       if (req.method === "GET" && req.url === "/v1/health") {
-        return send(200, { ok: Boolean(provider), provider: provider?.name ?? null, model: provider?.model ?? null, contract: 1 });
+        return send(200, {
+          ok: Boolean(provider),
+          provider: provider?.name ?? null,
+          model: provider?.model ?? null,
+          contract: 1,
+          speech: speech ? { synthesize: ["am", "om"], transcribe: ["am", "om", "en"] } : null,
+        });
       }
       if (req.method === "POST" && req.url === "/v1/tutor/turn") {
         if (!provider) throw new ContractError("unavailable", "No tutor provider configured.", 503);
@@ -35,6 +54,19 @@ export function createServer({ provider, allowOrigin = process.env.ALLOW_ORIGIN 
         const out = await provider.turn(turn);
         console.log(`turn ok session=${turn.sessionId.slice(0, 8)} ms=${Date.now() - started}`); // no content logged
         return send(200, { ...out, speech: null });
+      }
+      if (req.method === "POST" && req.url === "/v1/speech/synthesize") {
+        if (!speech) throw new ContractError("unavailable", "No speech provider configured.", 503);
+        const body = JSON.parse((await readBody(req, 8_000)).toString("utf8") || "{}");
+        return send(200, await speech.synthesize(String(body.text ?? ""), body.language));
+      }
+      if (req.method === "POST" && req.url.startsWith("/v1/speech/transcribe")) {
+        if (!speech) throw new ContractError("unavailable", "No speech provider configured.", 503);
+        const lang = new URL(req.url, "http://x").searchParams.get("language") ?? "am";
+        const audio = await readBody(req, 8_000_000);
+        if (audio.length < 1000) throw new ContractError("bad_request", "Recording too short.");
+        // Audio is forwarded once and never stored or logged.
+        return send(200, await speech.transcribe(audio, lang, req.headers["content-type"] || "audio/wav"));
       }
       send(404, { error: { code: "not_found", message: "Unknown route" } });
     } catch (error) {
@@ -54,5 +86,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     : null;
   if (!provider) console.warn(`No credentials for provider "${choice}": /v1/health reports ok=false and turns return 503.`);
   const port = Number(process.env.PORT || 8787);
-  createServer({ provider }).listen(port, "0.0.0.0", () => console.log(`tutor relay on :${port} provider=${provider?.name ?? "none"} model=${provider?.model ?? "-"}`));
+  const speech = process.env.ADDIS_API_KEY ? createAddisSpeech() : null;
+  createServer({ provider, speech }).listen(port, "0.0.0.0", () => console.log(`tutor relay on :${port} provider=${provider?.name ?? "none"} model=${provider?.model ?? "-"}`));
 }

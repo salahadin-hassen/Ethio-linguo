@@ -148,7 +148,7 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('speak_start')));
     await t.pumpAndSettle();
-    await t.longPress(find.byKey(const ValueKey('speak_talk')));
+    await t.tap(find.byKey(const ValueKey('speak_talk')));
     await t.pumpAndSettle();
     await shot(t, '39_professor_session_ui');
   });
