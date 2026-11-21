@@ -33,45 +33,87 @@ The product name is not final. It lives in `lib/app/app_config.dart`.
 
 Pull requests go into `integration/hackathon-mvp`. `main` changes only through a PR from integration.
 
-## What works today (2026-11-21)
+## Problem and who it serves
 
-**Scene-to-Speech MVP:** learn English from a real-life scene, understand it in your language, and practise it with an AI character.
+Tens of millions of Ethiopians speak Amharic or Afaan Oromo as their first language. Most English-learning apps explain English in English, assume constant mobile data, and drill isolated words. Learners meet real English in video and conversation, but nothing helps them understand it *in their own language* or practise saying it.
 
-- **Onboarding:** Amharic or Afaan Oromo, English as the target language, and English level. All three are persisted.
-- **Dashboard (5 tabs: Home · Learn · Discover · Speak · My Words):**
-  - greeting, XP, streak and daily progress
-  - continue learning and a featured scene
-  - entry points to every product area
-- **Media lesson:** one original bundled clip, with English, Amharic and Afaan Oromo subtitles synced to playback.
-  - Controls: replay line, previous and next line, and a tappable transcript.
-  - Expressions are tappable and open a card with the meaning in context, an example, pronunciation help, Save, and "Practise with the Professor".
-- **My Words:** save, remove (with undo), details and status. Saved words persist offline.
-- **Revision:** a flashcard review that awards XP.
-- **Gamification:** a single central progress service (`AppController.completeActivity`) handles XP, streak, badges and reward sheets.
-- **Offline:** the whole journey above passes an automated test with networking blocked.
-- **The Professor:** speech in → AI tutor → speech out, with a transcript and feedback.
-  - Implemented and tested with test doubles. The relay lives in `server/`.
-  - ✅ **A live AI conversation is verified with Addis AI** in both Amharic and Afaan Oromo, at about 2.7 s per turn (`test/live/`).
-  - Without the relay, the app honestly shows "The Professor is offline". See `docs/AI_PROVIDER_INTEGRATION.md`.
-- **Translations:** all Amharic and Afaan Oromo content is a labelled **draft** until a native speaker reviews it (`docs/CONTENT_GOVERNANCE.md`).
+Ethio-Linguo serves Amharic and Afaan Oromo speakers learning English, from beginner to conversational, on affordable Android phones with unreliable data.
 
-Architecture: `docs/ARCHITECTURE.md` and `docs/ADR/`.
+## Features (as of 2026-11-21)
+
+- **Onboarding:** choose Amharic or Afaan Oromo and an English level; both are saved on the device.
+- **Gamified path:** short lessons (multiple choice, match pairs, type the answer, build a sentence) with XP, streaks, hearts, levels, daily quests, badges and a Word Garden.
+- **Watch & learn:** a short original English scene with English, Amharic and Afaan Oromo subtitles synced to playback, and tappable expressions explained in context.
+- **My Words and review:** save expressions, then review them with spaced flashcards.
+- **The Professor (live AI tutor):** a spoken English roleplay of the scene, with teaching in Amharic or Afaan Oromo:
+  - you speak English (recognised on the phone) or ask a question in your own language (transcribed by Addis AI);
+  - the Professor answers in English as soon as the first line arrives, then coaches you aloud in your language (Addis voices Yohanes and Leta);
+  - "repeat after me" tasks are checked word by word on the phone, instantly;
+  - you can cut in while he is talking, and a dropped connection is retried once automatically.
+- **Animated characters:** Spark and the Professor are Rive rigs that react to what happens (listening, thinking, speaking, correct, wrong).
+- **Translations:** all Amharic and Afaan Oromo content is a labelled draft until a native speaker reviews it (`docs/CONTENT_GOVERNANCE.md`).
+
+## Offline and online
+
+| Works with no internet | Needs internet |
+|---|---|
+| Onboarding, lessons, path, XP, streaks, quests, badges, Word Garden | The Professor (AI tutor), including his Amharic/Oromo voice and transcription of spoken questions |
+| Watch & learn scene, subtitles, expression cards | |
+| My Words and review | |
+
+The offline journey is covered by an automated test with networking blocked. Without the relay, the Speak tab says plainly that the Professor is offline and offers offline practice instead.
+
+## Architecture
+
+- **Flutter app** (`lib/`): features depend only on interfaces collected in `AppServices` (content, vocabulary, tutor, speech, voice, audio). All progress goes through one service, `AppController.completeActivity`. Network code lives in a single file, `lib/services/tutor/relay_tutor_engine.dart`, enforced by a test.
+- **Tutor relay** (`server/`, Node 24, no dependencies): holds the Addis AI key, builds the teaching prompt, streams the tutor's answer (`POST /v1/tutor/turn/stream`), and synthesises and transcribes Amharic/Afaan Oromo speech. The app never contains an API key.
+- Details: `docs/ARCHITECTURE.md`, `docs/AI_PROVIDER_INTEGRATION.md` and `docs/ADR/`.
 
 ## Run
 
+### 1. Start the AI relay (on a laptop on the same Wi-Fi as the phone)
+
+```bash
+cd server
+cp .env.example .env        # then put your own Addis AI key in .env (ADDIS_API_KEY=...). Never commit it.
+npm test
+npm start                   # listens on port 8787
+```
+
+Check it: open `http://<laptop-ip>:8787/v1/health` (it should say `"ok":true`). Find the laptop IP with `ip -4 addr` (Linux) or `ipconfig` (Windows). If a firewall blocks the phone, allow port 8787 from your local network only.
+
+Optional: install `ffmpeg` on the relay machine so the Professor's mouth follows the measured loudness of his voice.
+
+### 2. Build and install the Android app
+
 ```bash
 flutter pub get
-flutter run                                   # Android device/emulator (or -d linux / -d chrome)
-(cd server && cp .env.example .env && npm install && npm start)          # tutor relay; set ADDIS_API_KEY in server/.env
-flutter run --dart-define=TUTOR_BASE_URL=http://<relay-host>:8787
+flutter build apk --release --target-platform android-arm64 \
+  --dart-define=TUTOR_BASE_URL=http://<laptop-ip>:8787
+adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
+
+If the laptop's IP changes later, open Speak; on "The Professor is offline", type the new address in **Tutor server** and tap **Connect**. No rebuild needed.
+
+For development: `flutter run --dart-define=TUTOR_BASE_URL=http://<laptop-ip>:8787`. On a machine with little RAM, run tests with `flutter test -j 1` and never alongside a build.
+
+## Limitations
+
+- The relay runs on a laptop over plain HTTP; the Android app allows cleartext traffic for that reason. A production deployment needs the relay on a host with HTTPS.
+- AI response time depends on the network: measured 1.5–2.8 s to the first spoken line on a good connection and 5–10 s on a slow one.
+- The Professor's mouth follows the loudness of his voice; it is not phoneme lip-sync. His English voice is the phone's text-to-speech and varies by device.
+- Content is a demo: one video scene and one course unit.
+- Tutor conversations are not saved between app restarts.
+- The Rive character files are on Rive's free plan and carry its watermark.
+- Translations are AI-assisted drafts pending native-speaker review.
 
 ## Quality checks
 
 ```bash
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
-flutter test                                  # unit, widget, offline, Ethiopic coverage, contract tests
+flutter test -j 1                             # unit, widget, offline, Ethiopic coverage, contract tests
+(cd server && npm test)                       # relay tests
 flutter test test/screenshots --run-skipped --update-goldens   # regenerate screenshots
 flutter build apk --release
 ```

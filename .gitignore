@@ -60,3 +60,9 @@ app.*.map.json
 **/google-services.json
 **/GoogleService-Info.plist
 server/.env
+
+# Submission package build outputs
+submission/*.apk
+submission/*.zip
+submission/screenshots/
+submission/recordings/
