@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 2,
+  "id": "bus_stop_hello",
+  "type": "video",
+  "title": "Long time no see",
+  "description": "Two old friends meet by chance at a bus stop and make plans.",
+  "sourceLanguage": "en",
+  "difficulty": 1,
+  "durationMs": 15733,
+  "contentVersion": 1,
+  "offlineAvailable": true,
+  "sceneSummary": "Two old friends, Liya and Dawit, meet by chance at a city bus stop after a long time apart. They ask how each other has been, talk about Liya's new job and Dawit studying English, and agree to catch up at the weekend.",
+  "speakers": { "liya": "Liya", "dawit": "Dawit" },
+  "media": {
+    "id": "bus_stop_hello_video",
+    "type": "video",
+    "durationMs": 15733,
+    "localAsset": "assets/content/bus_stop_hello/clip.mp4",
+    "posterAsset": "assets/content/bus_stop_hello/poster.jpg"
+  },
+  "transcript": "assets/content/bus_stop_hello/transcript.en.json",
+  "translations": {
+    "am": { "status": "draft", "translator": "Hackathon team (draft, pending native-speaker review)" },
+    "om": { "status": "draft", "translator": "Hackathon team (draft, pending native-speaker review)" }
+  },
+  "rights": {
+    "creator": "Ethio Linguo hackathon team",
+    "rightsHolder": "Ethio Linguo hackathon team",
+    "licenseType": "original",
+    "attribution": "Original script and animation by the Ethio Linguo team. Voices synthesized with Piper using the LibriTTS-R voice model (dataset CC BY 4.0, openslr.org/141).",
+    "source": "tool/content/make_bus_stop_clip.py",
+    "offlineUseAllowed": true,
+    "derivativeTranslationsAllowed": true,
+    "components": [
+      "Speech synthesis: Piper TTS, voice en_US-libritts_r-medium; training data LibriTTS-R, CC BY 4.0 (https://www.openslr.org/141/)"
+    ]
+  }
+}
