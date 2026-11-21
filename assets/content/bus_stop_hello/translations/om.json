@@ -1,0 +1,49 @@
+{
+  "language": "om",
+  "status": "draft",
+  "segments": {
+    "s1": "Hee Daawit! Yeroo dheeraaf wal hin argine!",
+    "s2": "Liyaa! Akkam turte?",
+    "s3": "Hojii koo haaraa irratti baay'ee qabamee ture. Ati hoo?",
+    "s4": "Hamaa miti. Guyyaa hunda Afaan Ingiliffaa barachaa jira.",
+    "s5": "Baay'ee gaarii! Dhuma torban kanaa wal arginee haa haasofnu.",
+    "s6": "Tole. Dhiyootti wal arginaa!"
+  },
+  "expressions": {
+    "long_time_no_see": {
+      "meaning": "Yeroo dheeraaf wal hin argine",
+      "context": "Nama yeroo dheeraaf hin argin yeroo argitu nagaa gammachuudhaan gaafachuuf jedhama. Liyaan Daawitin erga yeroo dheeraa booda waan argiteef gammaddee jirti.",
+      "example": "Yeroo dheeraaf wal hin argine! Maatiin kee akkam jiru?"
+    },
+    "how_have_you_been": {
+      "meaning": "Akkam turte?",
+      "context": "Erga wal argitan booda jireenyi akkam akka ture gaafachuuf. 'How are you?' haala amma qofa gaafata; kun immoo yeroo darbe illee ni dabalata.",
+      "example": "Erga gara Adaamaa deemtee akkam turte?"
+    },
+    "what_about_you": {
+      "meaning": "Ati hoo?",
+      "context": "Waa'ee ofii erga dubbattee booda, gaaffii walfakkaataa nama biraatiif deebisuuf. Liyaan waa'ee hojii ishee erga dubbattee booda Daawitin gaafatti.",
+      "example": "Kubbaa miilaa nan jaalladha. Ati hoo?"
+    },
+    "not_bad": {
+      "meaning": "Hamaa miti",
+      "context": "Wanti hundi gaarii akka ta'e salphaatti ibsuuf. Yeroo baay'ee 'gaarii dha' jechuu dha.",
+      "example": "Qormaanni akkam ture? Hamaa miti, galatoomi."
+    },
+    "catch_up": {
+      "meaning": "Wal arganii oduu waliif himuu",
+      "context": "Namoonni yeroo dheeraaf wal hin argin wal arganii oduu dabre waliif himuu. Asitti Liyaan Daawitin dhuma torbanii akka wal argan affeerti.",
+      "example": "Erga barnootaa booda wal arginee haa haasofnu."
+    },
+    "sounds_good": {
+      "meaning": "Tole, gaarii dha",
+      "context": "Yaada dhiyaate irratti walii galuu agarsiisa. Daawit affeerraa Liyaa ni fudhata.",
+      "example": "Laaqana sa'aatii torbaatti? Tole."
+    },
+    "see_you_soon": {
+      "meaning": "Dhiyootti wal arginaa",
+      "context": "Yeroo addaan baatan, dhiyootti akka wal argitan abdachuudhaan nagaa wal gaafachuuf jedhama.",
+      "example": "Har'aaf galatoomi. Dhiyootti wal arginaa!"
+    }
+  }
+}

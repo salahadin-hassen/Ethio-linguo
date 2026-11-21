@@ -1,57 +1,36 @@
 # Data Model
 
-The Dart classes are the source of truth. This page describes them. All persisted JSON is versioned and corrupt data falls back to empty instead of crashing.
+The Dart classes are the source of truth. All of them are plain Dart in `lib/data/models/`, and the persisted JSON is versioned.
 
-## User preferences: `LearnerProgress` (`data/models/progress.dart`)
-
-| Field | Type | Notes |
+| Directive model | Implementation | File |
 |---|---|---|
-| `onboarded` | bool | Gate between welcome and home |
-| `native` | `NativeLanguage` (`am` / `om`) | Instruction language |
-| `target` | `TargetLanguage` (`en`) | Only English is available |
+| LearnerProfile | `LearnerProfile`: `id` (local UUID), `nativeLanguage`, `targetLanguages`, `level` (`LearnerLevel`), `createdAt`. Persisted inside `LearnerProgress` ([ADR 0002](ADR/0002-local-first-persistence.md)) | `progress.dart` |
+| Language | `LanguageInfo`: `code` (BCP-47 `en`/`am`/`om`), `displayName`, `nativeName`, `script`, `textDirection`, `capabilities`, `speechLocale`. Registry: `Languages`. `NativeLanguage.info` links the enum | `language.dart` |
+| LearningContent | `LearningContent`: `id`, `type` (`ContentType`), `title`, `description`, `sourceLanguage`, `translations` (code → `TranslationInfo`), `difficulty`, `durationMs`, `rights` (`ContentRights`), `offlineAvailable`, `contentVersion`, `media`, `transcriptAsset`, `sceneSummary`, `speakers` | `content.dart` |
+| MediaItem | `MediaItem`: `id`, `contentId`, `mediaType`, `localAsset`, `remoteUrl`, `posterAsset`, `durationMs`. Attribution and licensing live in `LearningContent.rights` | `content.dart` |
+| TranscriptSegment | `TranscriptSegment`: `id`, `mediaId`, `startMs`, `endMs` (exclusive), `originalText`, `speakerId`, `translations` (code → text), `expressionIds`. Grouped and validated by `Transcript` | `transcript.dart` |
+| (expression) | `Expression`: `id`, `text`, `segmentId`, `meaning`, `contextualMeaning`, `example`, `exampleTranslation` (all keyed by language code) | `content.dart` |
+| VocabularyEntry | `VocabularyEntry`: `id` (UUID), `learnerId`, `expressionId`, `originalExpression`, `translations`, `contextualMeaning`, `example`, `contextLine`, `contextTranslations`, `source`, `sourceContentId`/`Title`/`SegmentId`, `masteryStatus`, `createdAt`, `updatedAt`, `nextReviewAt`, `reviewCount`, `dirty` | `vocabulary.dart` |
+| LearningActivity | `LearningActivity`: `id` (e.g. `media:bus_stop_hello`), `type`, `contentId`, `difficulty`, `native`/`target` (language configuration), `activityData` | `activity.dart` |
+| LearningProgress | `LearnerProgress`: `completedNodeIds` + `completedActivityIds`, `totalXp`, `streak`, `lastActiveDay`, `daily`, `words` (Word Garden). Achievements are *derived* (`Achievement.evaluate`), not stored | `progress.dart`, `gamification.dart` |
+| ConversationSession | `ConversationSession`: `id`, `tutorCharacterId`, `native` (language configuration), `contentId` (lesson context), `createdAt`, `learnerTurns`, `usedExpressions`, `suggestions` (feedback). Full transcripts are not persisted (privacy) | `conversation.dart` |
 
-Persisted under the SharedPreferences key `learner_progress_v1`.
+Supporting types:
+- `TutorContext`, `TutorTurn` and `TutorFeedback` in `conversation.dart`
+- `ActivityReward` and `ActivityXp` (the only XP rule table) in `activity.dart`
+- `ContentRights` and `TranslationInfo` in `content.dart`
 
-## Lesson content: `Course` / `Unit` / `PathNode` / `Lesson` / `Term` / `Exercise`
+## Storage
 
-These are bundled in `data/local/demo_course.dart`. A `Term` holds English plus `Localized(am, om)`. The data is read-only at runtime.
+| Key / path | Content |
+|---|---|
+| `learner_progress_v1` (SharedPreferences) | `LearnerProgress` JSON, including the profile fields `learnerId`, `createdAt`, `level` and `activities` |
+| `vocabulary_entries_v2` (SharedPreferences) | `VocabularyEntry[]`, newest first |
+| `assets/content/catalog.json` | list of manifest paths |
+| `assets/content/<id>/manifest.json` | `LearningContent` (schemaVersion 2) |
+| `assets/content/<id>/transcript.en.json` | source segments + expressions |
+| `assets/content/<id>/translations/<code>.json` | `{segments:{id:text}, expressions:{id:{meaning,context,example}}}` |
 
-## Media item: `MediaItem` (`data/models/media.dart`)
+Example JSON is in [INTEGRATION_CONTRACTS.md](INTEGRATION_CONTRACTS.md) §3–4.
 
-| Field | Type | Notes |
-|---|---|---|
-| `id` | String | Stable, snake_case, equal to the asset folder name |
-| `title` | String | English |
-| `videoAsset` / `posterAsset` | String | Bundled asset paths |
-| `durationMs` | int | |
-| `license` | `MediaLicense{kind, attribution, url?}` | `kind` is `"original"` or an SPDX id. **Required.** |
-| `sceneSummary` | String | Plain English. Passed to the tutor |
-| `level` | int | 1 = beginner |
-| `segments` | `List<SubtitleSegment>` | Sorted, non-overlapping |
-| `expressions` | `List<Expression>` | Learnable phrases |
-
-## Subtitle segment: `SubtitleSegment`
-
-`id`, `startMs`, `endMs` (end exclusive), `en`, `translations` (`{"am": …, "om": …}`), `speaker?`, `expressionIds[]`. Each expression's `en` must appear verbatim in the segment's `en` so the UI can highlight it.
-
-## Expression: `Expression`
-
-`id`, `en`, `meaning` (a short gloss per language), `explanation` (why it is said this way in this scene, per language), `example?`, and `reviewed`. `reviewed` is `true` only after a native speaker has checked it.
-
-## Vocabulary entry: `SavedExpression` (`data/models/saved_expression.dart`)
-
-`id` (equals the `Expression.id`, which deduplicates), `en`, `meaning`, `source` (`media` / `tutor` / `lesson`), `savedAt` (ISO-8601), `contextLine?`, `mediaId?`, `segmentId?` and `reviewCount`. Persisted as a JSON list under `saved_expressions_v1`, newest first.
-
-Lesson words keep living in `LearnerProgress.words` (the Word Garden, as `strength` 0–4). My Words shows both.
-
-## Learning progress: `LearnerProgress`
-
-`totalXp`, `streak`, `lastActiveDay` (`yyyy-mm-dd`), `hearts` / `heartsDay`, `completedNodeIds`, `perfectNodeIds`, `words`, `daily` (`DailyStats{day, xp, lessons, perfectLessons}`) and `longestCorrectRun`.
-
-Media and tutor activities add XP through `AppController.recordActivity`. They do not write their own progress.
-
-## Conversation record: `TutorTurn` (`services/tutor/tutor_service.dart`)
-
-`speaker` (`learner` / `tutor`), `text` (English), `translation?`, `feedback?` (`TutorFeedback{kind, note, suggestion?, noteNative?}`) and `usedExpressions[]`.
-
-Transcripts are **in memory only** for the MVP. They are not persisted or uploaded beyond the turn request, which is a privacy default. After a conversation, expressions the learner used can be saved with `source: tutor`.
+The v1 key `saved_expressions_v1` from the foundation branch was never shipped, so no migration is needed.

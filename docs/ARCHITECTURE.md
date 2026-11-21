@@ -1,95 +1,107 @@
 # Architecture
 
-A single modular Flutter app with an optional tiny **tutor relay**. Everything on the core learning path is on-device. The only cloud dependency is the live AI tutor, and the relay exists only to keep credentials off the phone.
+**Shape:** a modular monolith. It is one Flutter app with clear feature boundaries, plus one optional stateless **tutor relay** whose only job is to keep AI credentials off the phone. The core learning experience runs entirely on the device ([ADR 0001](ADR/0001-modular-monolith.md), [ADR 0002](ADR/0002-local-first-persistence.md)).
 
 ## System context
 
 ```mermaid
 flowchart LR
-  subgraph Phone["Android phone (offline-first)"]
+  subgraph Phone["Android phone: works offline"]
     direction TB
-    UI["Flutter UI<br/>features/*"]
-    APP["AppController<br/>XP · streak · path · garden"]
-    SVC["AppServices<br/>MediaRepository · VocabularyRepository · TutorService"]
-    ASSETS[("Bundled assets<br/>course · clips · subtitles · fonts")]
-    PREFS[("SharedPreferences<br/>progress · saved expressions")]
-    STT["On-device speech-to-text"]
-    TTS["On-device text-to-speech"]
-    UI --> APP
+    UI["features/*<br/>screens + feature controllers"]
+    PROG["AppController<br/>central progress service<br/>(XP, streak, achievements, profile)"]
+    SVC["AppServices (composition root)"]
+    REPO["Repositories<br/>content · transcripts · downloads<br/>vocabulary · conversations"]
+    PROV["Provider adapters<br/>MediaPlayback · SpeechRecognizer<br/>SpeechSynthesizer · TutorEngine<br/>ExplanationProvider · Analytics"]
+    ASSETS[("Bundled content packages<br/>manifest · transcript · translations · clip")]
+    PREFS[("SharedPreferences<br/>learner_progress_v1 · vocabulary_entries_v2")]
+    OS["OS services<br/>video decoder · speech recognizer · TTS"]
+    UI --> PROG
     UI --> SVC
-    APP --> PREFS
-    SVC --> ASSETS
-    SVC --> PREFS
-    SVC --> STT
-    SVC --> TTS
+    SVC --> REPO
+    SVC --> PROV
+    REPO --> ASSETS
+    REPO --> PREFS
+    PROG --> PREFS
+    PROV --> OS
   end
-  subgraph Cloud["Online only (Speak)"]
-    RELAY["Tutor relay<br/>server/ · holds API key"]
-    LLM["LLM provider<br/>(adapter; default Anthropic)"]
+  subgraph Cloud["Online, only for the live Professor"]
+    RELAY["server/ tutor relay (Node)<br/>POST /v1/tutor/turn · GET /v1/health<br/>holds ANTHROPIC_API_KEY"]
+    LLM["Anthropic Messages API<br/>(provider adapter)"]
     RELAY --> LLM
   end
-  SVC -- "HTTPS JSON<br/>POST /v1/tutor/turn" --> RELAY
+  PROV -- "HTTPS JSON, text only" --> RELAY
 ```
 
-## Module boundaries
+## Modules
 
-```
-lib/
-  app/                 SHARED: bootstrap, router (app.dart), AppController, AppScope, AppServices/ServicesScope
-  core/                E1: theme tokens, motion, shared components
-    navigation/        SHARED: AppRoutes, HomeTab, MediaLessonArgs (frozen contract)
-  data/
-    models/            SHARED: course, progress (existing) · media.dart, saved_expression.dart (new contracts)
-    local/             E1: bundled course, ProgressStore
-    repositories/      SHARED interfaces · E2 owns AssetMediaRepository behaviour
-  services/
-    tutor/             tutor_service.dart = SHARED contract · E3 adds live implementation files
-  features/
-    onboarding/ language_selection/ home/ learning_path/ lessons/
-    word_garden/ achievements/ mascot/ my_words/             E1
-    discover/ media_lesson/                                  E2
-    speak/                                                   E3
-assets/content/media/  E2: one folder per clip + index.json
-server/                E3: tutor relay (optional, not bundled in the app)
-```
+The 11 conceptual modules map onto the existing folders. Nothing was moved just to match a template.
 
-**Rule:** features never import each other's internals. They talk through `AppRoutes` (navigation), `AppServices` (data/voice) and `AppController` (XP and progress).
+| Module | Where | Status |
+|---|---|---|
+| onboarding | `features/onboarding`, `features/language_selection` | ✅ welcome, native language, target language, English level |
+| learner_preferences | `LearnerProfile` (in `data/models/progress.dart`), `AppController.chooseLanguages/setNativeLanguage/setLevel` | ✅ persisted |
+| learn | `features/home`, `features/learning_path`, `features/lessons`, `features/word_garden` | ✅ milestone 1, plus the new dashboard |
+| discover | `features/discover` | ✅ catalogue from `LearningContentRepository` |
+| media_learning | `features/media_lesson` (controller + screen + expression sheet) | ✅ |
+| vocabulary | `features/my_words`, `data/repositories/vocabulary_repository.dart` | ✅ |
+| revision | `features/revision` | ✅ flashcards with fixed review intervals |
+| tutor | `features/speak` (controller + screen), `services/tutor`, `services/speech`, `server/` | ⚠️ pipeline built and tested; a live AI turn still needs a valid key on the relay |
+| progress | `app/app_controller.dart`, `data/models/activity.dart`, `features/progress` | ✅ the single XP mechanism |
+| offline_content | `assets/content/`, `content_repository.dart` (bundled implementations) | ✅ bundled; downloads are an interface only |
+| profile | `LearnerProfile` | ⏳ read model only; no profile screen |
 
-## Frontend structure
+Layering inside a feature:
 
-- **State:** `AppController` (`ChangeNotifier`) via `AppScope` for learner progress. `VocabularyRepository` is a `ChangeNotifier` read via `ServicesScope`. Feature-local state stays in `StatefulWidget`s or a feature-local controller. No new state-management packages.
-- **Navigation:** named routes in `lib/app/app.dart`, using the names in `AppRoutes`. Tabs live in `HomeShell` (E1).
-- **Dependency injection:** `main.dart` builds `AppServices`. Tests use `AppServices.inMemory()` (the default in `LearningApp`).
+- **presentation:** `*_screen.dart` and widgets. They hold no business rules.
+- **application:** `*_controller.dart`, which orchestrates repositories, providers and progress.
+- **domain:** `data/models/*`, pure Dart with no Flutter imports, except `language.dart` for `TextDirection`.
+- **data:** `data/repositories/*` holds the interfaces and their local implementations.
 
-## Backend requirements
+## Rules (enforced by `test/unit/architecture_test.dart` and `test/widget/offline_test.dart`)
 
-Only the **tutor relay** (`server/`, owned by E3):
+1. `lib/features/**` never imports `http`, `speech_to_text`, `flutter_tts` or `video_player`. It goes through `lib/services` interfaces.
+2. Features never import a concrete tutor provider (`relay_tutor_engine.dart`). Only `main.dart` wires it.
+3. Domain models (`TranscriptSegment`, `Expression`, `VocabularyEntry`, …) are never declared in `lib/features`.
+4. XP, streak and completed activities change **only** in `AppController`.
+5. Network APIs appear in exactly one file: `lib/services/tutor/relay_tutor_engine.dart`.
+6. No secrets exist in `lib/`, `assets/content/`, `server/src/` or `android/app/src/`.
+7. Amharic and Oromo UI strings live in `core/l10n/app_strings.dart`. Milestone-1 exceptions are listed explicitly, so this debt cannot grow silently.
 
-- One stateless endpoint `POST /v1/tutor/turn` plus `GET /v1/health` (`INTEGRATION_CONTRACTS.md` §7).
-- It holds the provider API key in `server/.env`, which is git-ignored. The app never contains a provider key.
-- It wraps the provider behind an adapter (`provider.anthropic`, possibly others), so the provider can be swapped.
-- Hackathon deployment: it runs on a team laptop on the demo Wi-Fi or a free-tier host. The app reads its URL from `--dart-define=TUTOR_BASE_URL=…`. With no URL, the app uses `UnavailableTutorService`.
+## Repository interfaces
 
-No database, no auth and no microservices.
+| Interface | MVP implementation | Future implementation |
+|---|---|---|
+| `LearningContentRepository` | `BundledContentRepository` (assets, rights-gated) | remote catalogue + cache |
+| `TranscriptRepository` | `BundledTranscriptRepository` (source + `translations/<code>.json`) | downloaded packs, CDN |
+| `DownloadRepository` | `BundledDownloadRepository` (everything bundled) | download manager |
+| `VocabularyRepository` | `SharedPrefsVocabularyRepository` | SQLite/Drift + sync outbox |
+| `ProgressStore` (the progress repository) | `SharedPrefsProgressStore` | SQLite + sync |
+| `ConversationRepository` | `InMemoryConversationRepository` (summaries only) | opt-in persistence |
 
-## Service interfaces (code is the source of truth)
+All of these are injected through `AppServices`, which `main.dart` builds. Tests use `AppServices.inMemory(...)`. No dependency-injection package is used.
 
-| Interface | File | Default impl | Owner |
-|---|---|---|---|
-| `ProgressStore` | `data/local/progress_store.dart` | `SharedPrefsProgressStore` | E1 |
-| `MediaRepository` | `data/repositories/media_repository.dart` | `AssetMediaRepository` | E2 |
-| `VocabularyRepository` | `data/repositories/vocabulary_repository.dart` | `SharedPrefsVocabularyRepository` | shared (E2 writes, E1 reads) |
-| `TutorService` / `TutorSession` | `services/tutor/tutor_service.dart` | `UnavailableTutorService` → E3's live one | E3 |
-| `AppController.recordActivity` | `app/app_controller.dart` | — | shared |
+## Extension points
 
-## Data flows
+| Future capability | Plug-in point |
+|---|---|
+| Music with synced lyrics, audio stories, podcasts | `ContentType` + `MediaPlayback` (audio implementation) + the same `Transcript`/`spansFor` logic |
+| Books and articles | `ContentType.book/article` + a reader widget. `Expression` and `Translations` are reused |
+| New Ethiopian languages | add `LanguageInfo` + `translations/<code>.json` + `AppStrings` entries ([ADR 0005](ADR/0005-translation-vs-ui-localization.md)) |
+| More AI characters | the `characterId` field in `TutorRequest`. Personas are relay-side data |
+| Another AI or speech provider | implement `TutorEngine` / `SpeechRecognizer` / `SpeechSynthesizer`, then wire it in `main.dart` |
+| Accounts and sync | remote repository implementations. Entries already carry local UUIDs, `updatedAt` and `dirty` |
+| Analytics | implement `Analytics`. Events are already emitted |
 
-**Media lesson (offline):** `DiscoverScreen` → `MediaRepository.list()` → `AppRoutes.mediaLesson(MediaLessonArgs)` → the player's position drives `MediaItem.segmentAt(ms)` → subtitle + `Translations.of(native)` → tap an expression → sheet → `VocabularyRepository.save(SavedExpression.fromMedia(...))` → finish → `recordActivity(xp: 15)` → offer Speak with `TutorContext(sceneSummary, targetExpressions)`.
+## Backend
 
-**Tutor turn (online):** hold the mic → `TutorState.listening` → on-device STT → `thinking` → relay `POST /v1/tutor/turn` → LLM → JSON reply → `speaking` (on-device TTS) + transcript + feedback → back to `idle`. After ≥ 3 learner turns, ending calls `recordActivity(xp: 20)`. Any failure → `error` with a retry option. No relay or network → `unavailable`.
+The only backend is `server/`, the tutor relay ([AI_PROVIDER_INTEGRATION.md](AI_PROVIDER_INTEGRATION.md)). Future API contracts are drafted in [INTEGRATION_CONTRACTS.md §10](INTEGRATION_CONTRACTS.md); none of them are implemented.
 
-## Why this shape
+## Performance notes for low-end Android
 
-- **Six hours:** the existing app, patterns and tests are reused. New work is additive folders, so three engineers rarely touch the same file.
-- **Offline-first:** the only network call is optional and isolated behind one interface.
-- **Future-ready:** `Translations` is keyed by language code, media manifests are versioned, and the tutor is provider-agnostic with the character as data. Music, books, more languages and more characters can be added as content plus new adapters (`FUTURE_ROADMAP.md`).
+- One `VideoPlayerController` exists per lesson. The controller disposes it, and its listener is removed before `dispose`.
+- Subtitle lookup is a binary search on each position tick, and the UI rebuilds only when the segment changes.
+- `TapGestureRecognizer`s for expressions are disposed on every rebuild and on unmount.
+- Repositories cache parsed content and return `SynchronousFuture`, so there is no loading flash on revisit.
+- Speech plugins are created lazily, so no platform channel opens until Speak is used.
+- The bundled clip is 170 KB (H.264 baseline, 640×360, 15 fps). The whole content pack is 224 KB.

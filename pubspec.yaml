@@ -9,9 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Local key-value persistence for learner progress (offline). Wrapped behind
-  # ProgressStore so it can be swapped for SQLite/Drift later.
+  flutter_tts: ^4.2.5
+  http: ^1.6.0
+  # Local key-value persistence (offline). Wrapped behind ProgressStore and
+  # VocabularyRepository so it can be swapped for SQLite/Drift later.
   shared_preferences: ^2.3.0
+  speech_to_text: ^7.5.0
+  video_player: ^2.14.1
 
 dev_dependencies:
   flutter_test:
@@ -22,8 +26,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    # Bundled offline media packages (Engineer 2). Schema: docs/INTEGRATION_CONTRACTS.md §3
-    - assets/content/media/
+    # Bundled offline content packages. Schema: docs/INTEGRATION_CONTRACTS.md §3
+    - assets/content/
+    - assets/content/bus_stop_hello/
+    - assets/content/bus_stop_hello/translations/
 
   fonts:
     - family: Nunito

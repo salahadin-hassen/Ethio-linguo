@@ -19,7 +19,7 @@ void main() {
       isTrue,
       reason: 'idle animation is running',
     );
-    await t.tap(find.byKey(const ValueKey('nav_Path')));
+    await t.tap(find.byKey(const ValueKey('nav_Learn')));
     for (var i = 0; i < 20; i++) {
       await t.pump(const Duration(milliseconds: 100));
     }
@@ -33,7 +33,7 @@ void main() {
     // pumpAndSettle would time out if any animation looped forever.
     await t.pumpAndSettle();
     expect(t.binding.hasScheduledFrame, isFalse);
-    await t.tap(find.byKey(const ValueKey('nav_Path')));
+    await t.tap(find.byKey(const ValueKey('nav_Learn')));
     await t.pumpAndSettle();
     expect(t.binding.hasScheduledFrame, isFalse);
   });

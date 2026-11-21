@@ -71,6 +71,9 @@ enum AchievementId {
   gardener,
   firstBloom,
   checkpoint,
+  sceneStarter,
+  wordKeeper,
+  firstConversation,
 }
 
 class Achievement {
@@ -100,6 +103,8 @@ class Achievement {
         .where((w) => w.stage == GrowthStage.bloom)
         .length;
     final checkpoints = p.completedNodeIds.intersection(checkpointIds).length;
+    int done(String prefix) =>
+        p.completedActivityIds.where((a) => a.startsWith(prefix)).length;
     Achievement a(
       AchievementId id,
       String t,
@@ -155,6 +160,27 @@ class Achievement {
         'Trailblazer',
         'Pass a unit checkpoint',
         checkpoints,
+        1,
+      ),
+      a(
+        AchievementId.sceneStarter,
+        'Scene Starter',
+        'Finish your first video lesson',
+        done('media:'),
+        1,
+      ),
+      a(
+        AchievementId.wordKeeper,
+        'Word Keeper',
+        'Complete a My Words review',
+        done('revision:'),
+        1,
+      ),
+      a(
+        AchievementId.firstConversation,
+        'First Conversation',
+        'Talk with the Professor',
+        done('tutor:'),
         1,
       ),
     ];

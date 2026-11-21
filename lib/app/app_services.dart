@@ -1,29 +1,69 @@
 import 'package:flutter/widgets.dart';
 
-import '../data/repositories/media_repository.dart';
+import '../data/models/content.dart';
+import '../data/repositories/content_repository.dart';
+import '../data/repositories/conversation_repository.dart';
 import '../data/repositories/vocabulary_repository.dart';
-import '../services/tutor/tutor_service.dart';
+import '../services/analytics/analytics.dart';
+import '../services/playback/media_playback.dart';
+import '../services/speech/speech_services.dart';
+import '../services/tutor/explanation_provider.dart';
+import '../services/tutor/tutor_engine.dart';
 
-/// Hackathon services, created once in main.dart and swapped in tests.
-/// Owned by the integration lead: workstreams change IMPLEMENTATIONS passed in
-/// main.dart, never this shape (see docs/INTEGRATION_CONTRACTS.md §5).
+/// Composition root for replaceable boundaries (repositories, providers).
+/// Built once in main.dart; tests pass fakes. Features depend on these
+/// interfaces only — never on a plugin or AI provider directly.
 class AppServices {
   AppServices({
-    required this.media,
+    required this.content,
+    required this.transcripts,
+    required this.downloads,
     required this.vocabulary,
+    required this.conversations,
     required this.tutor,
+    required this.speechIn,
+    required this.speechOut,
+    required this.explanations,
+    required this.playbackFactory,
+    required this.analytics,
   });
 
-  /// Offline-safe defaults for tests and previews.
-  factory AppServices.inMemory() => AppServices(
-    media: const InMemoryMediaRepository([]),
-    vocabulary: InMemoryVocabularyRepository(),
-    tutor: const UnavailableTutorService(),
+  /// Offline-safe defaults for tests and previews: no plugins, no network.
+  factory AppServices.inMemory({
+    LearningContentRepository? content,
+    TranscriptRepository? transcripts,
+    VocabularyRepository? vocabulary,
+    TutorEngine? tutor,
+    SpeechRecognizer? speechIn,
+    SpeechSynthesizer? speechOut,
+    MediaPlaybackFactory? playbackFactory,
+    Analytics? analytics,
+  }) => AppServices(
+    content: content ?? BundledContentRepository(),
+    transcripts: transcripts ?? BundledTranscriptRepository(),
+    downloads: const BundledDownloadRepository(),
+    vocabulary: vocabulary ?? InMemoryVocabularyRepository(),
+    conversations: InMemoryConversationRepository(),
+    tutor: tutor ?? const UnavailableTutorEngine(),
+    speechIn: speechIn ?? const UnavailableSpeechRecognizer(),
+    speechOut: speechOut ?? const UnavailableSpeechSynthesizer(),
+    explanations: const BundledExplanationProvider(),
+    playbackFactory:
+        playbackFactory ?? (MediaItem m) => ClockPlayback(m.durationMs),
+    analytics: analytics ?? const DebugAnalytics(),
   );
 
-  final MediaRepository media;
+  final LearningContentRepository content;
+  final TranscriptRepository transcripts;
+  final DownloadRepository downloads;
   final VocabularyRepository vocabulary;
-  final TutorService tutor;
+  final ConversationRepository conversations;
+  final TutorEngine tutor;
+  final SpeechRecognizer speechIn;
+  final SpeechSynthesizer speechOut;
+  final ExplanationProvider explanations;
+  final MediaPlaybackFactory playbackFactory;
+  final Analytics analytics;
 }
 
 class ServicesScope extends InheritedWidget {

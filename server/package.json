@@ -1,0 +1,15 @@
+{
+  "name": "ethio-linguo-tutor-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stateless relay that keeps AI provider credentials off the mobile app.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0"
+  }
+}

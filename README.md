@@ -26,28 +26,44 @@ The product name is not final. It lives in `lib/app/app_config.dart`.
 - [Demo script](docs/DEMO_SCRIPT.md)
 - [Test plan](docs/TEST_PLAN.md)
 - [Roadmap](docs/FUTURE_ROADMAP.md)
+- [AI provider integration](docs/AI_PROVIDER_INTEGRATION.md)
+- [Content governance](docs/CONTENT_GOVERNANCE.md)
+- [ADRs](docs/ADR/)
 - [Contributing](CONTRIBUTING.md)
 
 Pull requests go into `integration/hackathon-mvp`. `main` changes only through a PR from integration.
 
-## What works today
+## What works today (2026-11-21)
 
-- **Milestone 1:**
-  - Screens: welcome, language selection (Amharic / Afaan Oromo), home dashboard, learning path, 4 exercise types, lesson completion.
-  - Rewards: XP, levels, streak, hearts, quests, achievements, Word Garden.
-  - Fully offline: bundled content, on-device progress, bundled Ethiopic fonts.
-- **Hackathon foundation:**
-  - Shared models for media, subtitles, expressions and saved expressions.
-  - `MediaRepository`, `VocabularyRepository` and a provider-agnostic `TutorService`, injected via `AppServices`.
-  - Frozen route names, a `recordActivity` XP hook, and placeholder screens for Discover, media lesson, Speak and My Words.
-- **Not yet built** (workstreams in progress): the video player and subtitles, the live voice tutor, the four-tab shell and the My Words list. The tutor currently reports itself **unavailable**, honestly.
+**Scene-to-Speech MVP:** learn English from a real-life scene, understand it in your language, and practise it with an AI character.
+
+- **Onboarding:** Amharic or Afaan Oromo, English as the target language, and English level. All three are persisted.
+- **Dashboard (5 tabs: Home · Learn · Discover · Speak · My Words):**
+  - greeting, XP, streak and daily progress
+  - continue learning and a featured scene
+  - entry points to every product area
+- **Media lesson:** one original bundled clip, with English, Amharic and Afaan Oromo subtitles synced to playback.
+  - Controls: replay line, previous and next line, and a tappable transcript.
+  - Expressions are tappable and open a card with the meaning in context, an example, pronunciation help, Save, and "Practise with the Professor".
+- **My Words:** save, remove (with undo), details and status. Saved words persist offline.
+- **Revision:** a flashcard review that awards XP.
+- **Gamification:** a single central progress service (`AppController.completeActivity`) handles XP, streak, badges and reward sheets.
+- **Offline:** the whole journey above passes an automated test with networking blocked.
+- **The Professor:** speech in → AI tutor → speech out, with a transcript and feedback.
+  - Implemented and tested with test doubles. The relay lives in `server/`.
+  - ⚠️ **A live AI turn has not been verified yet**, because no valid provider key was available.
+  - Until one is configured, the app honestly shows "The Professor is offline". See `docs/AI_PROVIDER_INTEGRATION.md`.
+- **Translations:** all Amharic and Afaan Oromo content is a labelled **draft** until a native speaker reviews it (`docs/CONTENT_GOVERNANCE.md`).
+
+Architecture: `docs/ARCHITECTURE.md` and `docs/ADR/`.
 
 ## Run
 
 ```bash
 flutter pub get
 flutter run                                   # Android device/emulator (or -d linux / -d chrome)
-flutter run --dart-define=TUTOR_BASE_URL=http://<relay-host>:8787   # once the tutor relay exists
+(cd server && cp .env.example .env && npm install && npm start)          # tutor relay; set ANTHROPIC_API_KEY in server/.env
+flutter run --dart-define=TUTOR_BASE_URL=http://<relay-host>:8787
 ```
 
 ## Quality checks
@@ -64,20 +80,19 @@ flutter build apk --release
 
 ```
 lib/
-  app/          bootstrap, router, AppController (progress rules), AppScope, AppServices
-  core/         theme tokens, motion, navigation (AppRoutes, HomeTab), components
+  app/            bootstrap, router, AppController (central progress service), AppScope, AppServices
+  core/           theme, motion, navigation (AppRoutes, HomeTab), components, l10n (AppStrings), util
   data/
-    models/     language, course, exercise, progress, gamification, media, saved_expression
-    local/      bundled demo course, ProgressStore
-    repositories/  MediaRepository, VocabularyRepository
-  services/tutor/  TutorService contract (+ live implementation, E3)
-  features/     onboarding, language_selection, home, learning_path, lessons, word_garden,
-                achievements, mascot, my_words (E1) · discover, media_lesson (E2) · speak (E3)
-assets/
-  fonts/        Nunito + Noto Sans Ethiopic (OFL, see FONTS_LICENSE.md)
-  content/media/  bundled clips + manifests (E2)
-server/         tutor relay (E3, optional, never bundled; holds the API key)
-docs/           product, architecture, contracts, design, test plan, screenshots
+    models/       language, content, transcript, vocabulary, activity, conversation, progress, course
+    repositories/ content/transcript/download, vocabulary, conversation (interfaces + local impls)
+    local/        bundled path course, ProgressStore
+  services/       playback (MediaPlayback), speech (STT/TTS), tutor (TutorEngine, relay client), analytics
+  features/       onboarding, language_selection, home, learning_path, lessons, word_garden, achievements,
+                  discover, media_lesson, my_words, revision, speak, progress, mascot
+assets/content/   bundled content packages (manifest, transcript, translations/<code>.json, clip)
+server/           tutor relay (Node, holds the provider key; never bundled)
+tool/content/     reproducible generator for the original demo clip
+docs/             product, architecture, contracts, governance, ADRs, test plan, screenshots
 ```
 
 ## Security

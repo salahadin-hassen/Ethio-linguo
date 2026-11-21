@@ -1,3 +1,4 @@
+import 'package:ethio_linguo/core/navigation/app_routes.dart';
 import 'package:ethio_linguo/app/app_controller.dart';
 import 'package:ethio_linguo/data/models/course.dart';
 import 'package:ethio_linguo/data/models/exercise.dart';
@@ -231,8 +232,7 @@ void main() {
 
   testWidgets('word garden watering session plays and awards XP', (t) async {
     final h = await pumpApp(t, progress: midJourney());
-    await t.tap(find.byKey(const ValueKey('nav_Garden')));
-    await t.pumpAndSettle();
+    await openRoute(t, AppRoutes.garden);
     await t.tap(find.byKey(const ValueKey('water_garden')));
     await t.pumpAndSettle();
     expect(find.byType(LessonScreen), findsOneWidget);

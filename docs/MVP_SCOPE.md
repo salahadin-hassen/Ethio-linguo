@@ -1,42 +1,50 @@
-# MVP Scope: Six-Hour Hackathon
+# MVP Scope: Scene-to-Speech
 
-**Rule:** one complete, integrated journey beats many half-features. If it is not on the demo path (`DEMO_SCRIPT.md`), it waits.
+> Learn English through real-life media, understand it in your language, and practise it with an AI character.
 
-## Already implemented (milestone 1, on `main`)
+The status below is what is built and tested **as of 2026-11-21**. Items marked ⚠️ have code and tests but lack a runtime verification.
 
-- Welcome, language selection (Amharic / Afaan Oromo), home dashboard, learning path, 4 exercise types, lesson completion.
-- XP, levels, streak, hearts, daily quests, achievements, Word Garden.
-- Offline: bundled course, local progress (SharedPreferences), bundled Nunito + Noto Sans Ethiopic.
-- 88 automated tests (unit, widget, offline, Ethiopic glyph coverage, contracts).
+## P0: essential (all ✅)
 
-## To build in the hackathon
+| Feature | Status | Evidence |
+|---|---|---|
+| Welcome, native language (Amharic / Afaan Oromo), English as target, English level | ✅ persisted (`LearnerProfile`) | `startup_and_onboarding_test`, `content_and_vocabulary_test` |
+| Five-tab dashboard: Home · Learn · Discover · Speak · My Words | ✅ | `dashboard_and_path_test`, screenshot 30 |
+| Home: greeting, daily progress, XP, streak, continue learning, featured scene, Discover, Professor, My Words and Badges entry points | ✅ no fake stats; every tile navigates | `dashboard_and_path_test` |
+| One bundled, original video lesson (15.7 s, 170 KB) | ✅ | `content_and_vocabulary_test` |
+| Playback controls: play/pause, previous/next line, replay line, scrubber | ✅ | `scene_to_speech_test` |
+| Timestamped English + Amharic + Afaan Oromo subtitles, chosen by the learner's language, synced to playback | ✅ | `scene_to_speech_test` (both languages, gaps, seek) |
+| Tap-to-select expressions (7 in the clip), transcript list that taps to replay | ✅ | `scene_to_speech_test` |
+| Expression card: English, translation, meaning in this scene, example + translation, pronunciation (replays the real line from the clip offline; device TTS where available), Save, Practise with Professor | ✅ | `scene_to_speech_test`, screenshot 34 |
+| My Words: save, remove (with undo), open details, status, saved date, source, persists across restart, offline | ✅ | `content_and_vocabulary_test`, `scene_to_speech_test` |
+| Revision: flashcards on fixed intervals (1 / 3 / 7 days), XP | ✅ | `scene_to_speech_test` |
+| Gamification: one central `completeActivity`, lesson completion, streak, new badges (Scene Starter, Word Keeper, First Conversation), reward sheet | ✅ | `content_and_vocabulary_test` |
+| Offline: the whole P0 journey with networking blocked | ✅ automated (`HttpOverrides` tripwire) | `scene_to_speech_test`, `offline_test` |
 
-| # | Feature | Owner | Acceptance criteria |
-|---|---|---|---|
-| 1 | Four-tab shell: Learn · Discover · Speak · My Words | E1 | Tabs per `HomeTab`; keys `nav_Learn` etc.; existing Learn flow is unchanged |
-| 2 | Discover catalogue | E2 | Lists bundled clips from `MediaRepository`; works in flight mode |
-| 3 | Media lesson player | E2 | One clip plays; English plus native subtitles stay within ±250 ms of speech; Amharic and Oromo both work |
-| 4 | Expression explanation | E2 | Tapping a highlighted expression pauses the video and opens a sheet with its meaning and explanation in the learner's language |
-| 5 | Save to My Words | E2 | `VocabularyRepository.save`; it persists across app restarts; saving twice creates no duplicate |
-| 6 | My Words screen | E1 | Lists saved expressions with their context line and native meaning; updates live; shows an empty state |
-| 7 | Professor voice tutor | E3 | At least one genuine voice turn (speech → AI → spoken reply) using the scene's `TutorContext`; transcript shown; every `TutorState` rendered |
-| 8 | Honest fallback | E3 | With no backend, credentials or network, the UI says the live tutor is unavailable. Any offline practice is labelled "not AI" |
-| 9 | Rewards | E2 / E3 | `recordActivity`: media lesson complete = **15 XP**; tutor conversation with ≥ 3 learner turns = **20 XP** |
-| 10 | Offline proof | all | The demo path (except Speak) works in flight mode on the demo Android phone |
+## P1: differentiator
+
+| Feature | Status |
+|---|---|
+| Professor screen: lesson context, every conversation state, transcript, feedback cards, "AI translation" labels | ✅ implemented and tested with test doubles |
+| Push-to-talk speech recognition and spoken replies | ⚠️ implemented (OS speech services). **Not verified on a physical phone yet** |
+| Live AI replies via the relay | ⚠️ relay built and tested. **Live call not verified: no valid provider key on the build machine** |
+| Honest fallback when the tutor is unavailable | ✅ tested |
+| XP celebration | ✅ |
+
+## P2: not started (by design)
+
+Rich character animation, more activity types, advanced achievements, music and book prototypes.
 
 ## Explicit exclusions
 
-- Accounts, login, cloud sync, and any backend other than the tutor relay.
-- More than one or two clips; streaming or downloadable catalogues; music, lyrics, books and articles.
-- More than one AI character; separate AI personalities for the cast.
-- Phoneme-level pronunciation scoring. Feedback is based on recognised text and confidence only.
-- iOS polish, tablets, dark theme, payments, notifications, analytics.
-- Machine-translated subtitles shipped as if they were verified. Every translation is either reviewed by a native-speaking teammate or marked `"reviewed": false`.
+- Accounts, login and cloud sync. Records are sync-ready, but nothing syncs.
+- Content downloads. Everything is bundled; `DownloadRepository` is an interface only.
+- Phoneme-level pronunciation scoring.
+- More than one AI character.
+- Treating unreviewed translations as authoritative. Every translation is a labelled **draft** until a native speaker reviews it.
 
-## Definition of done (demo)
+## Before the demo
 
-- [ ] `flutter analyze` clean, `flutter test` green on `integration/hackathon-mvp`.
-- [ ] Release APK installed on the demo phone; the demo path rehearsed twice end to end.
-- [ ] Flight-mode run of the offline steps passes (`TEST_PLAN.md` §2).
-- [ ] The voice tutor is either live and verified, or the fallback is shown and stated as such in the pitch.
-- [ ] No secrets in the repo; every media item has a licence entry.
+- [ ] Put a valid provider key in `server/.env`, run `npm start`, and verify one live turn (TEST_PLAN §4).
+- [ ] Install the release APK on the demo phone. Check video, STT and TTS there.
+- [ ] Native-speaker review of `translations/am.json` and `om.json` (CONTENT_GOVERNANCE checklist).

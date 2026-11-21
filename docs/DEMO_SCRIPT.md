@@ -13,7 +13,7 @@
 | # | Action | Say |
 |---|---|---|
 | 1 | Welcome → choose **Afaan Oromo** (or Amharic) | "Instruction is in your language and your script. No flags. Fonts are bundled, so Ethiopic always renders." |
-| 2 | Home → **Discover** → open the clip | "Learn from what you love. This is an original clip we recorded." |
+| 2 | Home → **Discover** → open the clip | "Learn from what you love. This is an original scene our team wrote and produced." |
 | 3 | Play. Point at both subtitle lines | "English, and right under it, the meaning in Afaan Oromo, in sync." |
 | 4 | Tap the highlighted expression | "Not a dictionary entry: why they say it *in this scene*, explained in Oromo." |
 | 5 | **Save** → glance at My Words | "It's kept with its context, offline." |

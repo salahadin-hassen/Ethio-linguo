@@ -1,0 +1,21 @@
+{
+  "mediaId": "bus_stop_hello_video",
+  "language": "en",
+  "segments": [
+    { "id": "s1", "startMs": 600,   "endMs": 2897,  "speakerId": "liya",  "text": "Hey, Dawit! Long time no see!", "expressionIds": ["long_time_no_see"] },
+    { "id": "s2", "startMs": 3047,  "endMs": 4380,  "speakerId": "dawit", "text": "Liya! How have you been?", "expressionIds": ["how_have_you_been"] },
+    { "id": "s3", "startMs": 4530,  "endMs": 6966,  "speakerId": "liya",  "text": "I've been busy with my new job. What about you?", "expressionIds": ["what_about_you"] },
+    { "id": "s4", "startMs": 7116,  "endMs": 10087, "speakerId": "dawit", "text": "Not bad. I'm studying English every day.", "expressionIds": ["not_bad"] },
+    { "id": "s5", "startMs": 10237, "endMs": 12824, "speakerId": "liya",  "text": "That's great! Let's catch up this weekend.", "expressionIds": ["catch_up"] },
+    { "id": "s6", "startMs": 12974, "endMs": 14783, "speakerId": "dawit", "text": "Sounds good. See you soon!", "expressionIds": ["sounds_good", "see_you_soon"] }
+  ],
+  "expressions": [
+    { "id": "long_time_no_see", "segmentId": "s1", "text": "Long time no see", "example": "Long time no see! How is your family?" },
+    { "id": "how_have_you_been", "segmentId": "s2", "text": "How have you been?", "example": "How have you been since you moved to Adama?" },
+    { "id": "what_about_you", "segmentId": "s3", "text": "What about you?", "example": "I like football. What about you?" },
+    { "id": "not_bad", "segmentId": "s4", "text": "Not bad", "example": "How was the exam? Not bad, thanks." },
+    { "id": "catch_up", "segmentId": "s5", "text": "catch up", "example": "Let's catch up after class." },
+    { "id": "sounds_good", "segmentId": "s6", "text": "Sounds good", "example": "Lunch at one o'clock? Sounds good." },
+    { "id": "see_you_soon", "segmentId": "s6", "text": "See you soon", "example": "Thanks for today. See you soon!" }
+  ]
+}

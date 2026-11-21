@@ -28,11 +28,21 @@ abstract final class AppRoutes {
 
   /// My Words (also a home tab). No arguments.
   static const myWords = '/my-words';
+
+  /// Revision of due My Words entries. No arguments.
+  static const revision = '/revision';
+
+  /// Word Garden (lesson vocabulary). No arguments.
+  static const garden = '/garden';
+
+  /// Badges. No arguments.
+  static const achievements = '/achievements';
 }
 
 /// Target bottom-navigation order for the hackathon MVP. Engineer 1 owns the
 /// shell that renders it. Test keys are `nav_<label>`.
 enum HomeTab {
+  home('Home'),
   learn('Learn'),
   discover('Discover'),
   speak('Speak'),
@@ -43,8 +53,8 @@ enum HomeTab {
 }
 
 class MediaLessonArgs {
-  const MediaLessonArgs(this.mediaId);
-  final String mediaId;
+  const MediaLessonArgs(this.contentId);
+  final String contentId;
 }
 
 /// Shared page transition: a short fade + rise. Instant under reduced motion.

@@ -1,7 +1,6 @@
 import 'package:ethio_linguo/core/navigation/app_routes.dart';
+import 'package:ethio_linguo/data/models/conversation.dart';
 import 'package:ethio_linguo/data/models/language.dart';
-import 'package:ethio_linguo/services/tutor/tutor_service.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/harness.dart';
@@ -10,20 +9,25 @@ import '../helpers/harness.dart';
 void main() {
   final cases = <String, (Object?, String)>{
     AppRoutes.discover: (null, 'Discover'),
-    AppRoutes.mediaLesson: (const MediaLessonArgs('demo_clip'), 'Media lesson'),
+    AppRoutes.mediaLesson: (
+      const MediaLessonArgs('bus_stop_hello'),
+      'Long time no see',
+    ),
     AppRoutes.speak: (
       const TutorContext(native: NativeLanguage.amharic),
-      'Speak',
+      'The Professor',
     ),
     AppRoutes.myWords: (null, 'My Words'),
+    AppRoutes.revision: (null, 'Review My Words'),
+    AppRoutes.garden: (null, 'Word Garden'),
+    AppRoutes.achievements: (null, 'Badges & progress'),
   };
   for (final MapEntry(key: route, value: (args, title)) in cases.entries) {
     testWidgets('route $route opens its screen', (t) async {
       await pumpApp(t, progress: onboarded());
-      final nav = t.state<NavigatorState>(find.byType(Navigator).first);
-      nav.pushNamed(route, arguments: args);
-      await t.pumpAndSettle();
+      await openRoute(t, route, arguments: args);
       expect(find.text(title), findsWidgets);
+      expect(t.takeException(), isNull);
     });
   }
 }
