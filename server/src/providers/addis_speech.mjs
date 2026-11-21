@@ -4,7 +4,8 @@ import { ContractError } from "../contract.mjs";
 // Addis AI speech adapters: native-language TTS (Addis Voices) and STT
 // (Scribe). English TTS stays on-device (Addis English voice is ~20 s).
 const BASE = "https://api.addisassistant.com/api/v1";
-export const VOICES = { am: "am-hamen", om: "om-ayyaantuu" };
+// The Professor: mature male, low-key reflective voices.
+export const VOICES = { am: "am-yohanes-calm", om: "om-leta" };
 
 // ---------------------------------------------------------------------------
 // Loudness envelopes. They drive the Professor's jaw while a clip plays.
@@ -68,7 +69,7 @@ function decodeMp3(mp3, ffmpeg = process.env.FFMPEG || "ffmpeg") {
 /// Lowers pitch by PROFESSOR_PITCH (default 0.86) keeping tempo; null if
 /// ffmpeg is unavailable (the original voice is used then).
 function deepen(mp3, ffmpeg = process.env.FFMPEG || "ffmpeg") {
-  const f = Number(process.env.PROFESSOR_PITCH || 0.86);
+  const f = Number(process.env.PROFESSOR_PITCH || 1);
   if (!(f > 0.5 && f < 1)) return Promise.resolve(null);
   return new Promise((resolve) => {
     let p;
