@@ -433,14 +433,18 @@ class _StateBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CharacterAvatar(
-              key: const ValueKey('speak_professor'),
-              character: CastMember.professor,
-              state: c.professorState,
-              speaking: c.state == TutorState.speaking,
-              size: 96,
-              onTap: c.state == TutorState.speaking ? c.interrupt : null,
-              semanticLabel: 'The Professor, ${c.professorState.name}',
+            ValueListenableBuilder<double?>(
+              valueListenable: c.voiceLevel,
+              builder: (context, amp, _) => CharacterAvatar(
+                key: const ValueKey('speak_professor'),
+                character: CastMember.professor,
+                state: c.professorState,
+                speaking: c.state == TutorState.speaking,
+                voiceAmplitude: amp,
+                size: 96,
+                onTap: c.state == TutorState.speaking ? c.interrupt : null,
+                semanticLabel: 'The Professor, ${c.professorState.name}',
+              ),
             ),
             const SizedBox(width: Space.sm),
             Expanded(

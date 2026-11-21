@@ -114,9 +114,41 @@ class UnavailableTutorEngine implements TutorEngine {
 
 /// Synthesised audio clip.
 class SpeechClip {
-  const SpeechClip(this.bytes, this.mimeType);
+  const SpeechClip(this.bytes, this.mimeType, {this.envelope});
   final List<int> bytes;
   final String mimeType;
+
+  /// Loudness of the clip over time, measured from the real audio by the
+  /// relay. Null when the provider returned a format we cannot measure.
+  final AmplitudeEnvelope? envelope;
+}
+
+/// Per-frame loudness (0..1) of a clip. Drives the speaking character's jaw
+/// while the clip plays. Amplitude only: it is NOT phoneme/viseme lip-sync.
+class AmplitudeEnvelope {
+  const AmplitudeEnvelope(this.frameMs, this.values);
+  final int frameMs;
+  final List<double> values;
+
+  static AmplitudeEnvelope? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final ms = j['frameMs'];
+    final v = j['values'];
+    if (ms is! num || ms <= 0 || v is! List || v.isEmpty) return null;
+    return AmplitudeEnvelope(ms.toInt(), [
+      for (final x in v) x is num ? x.toDouble().clamp(0.0, 1.0) : 0.0,
+    ]);
+  }
+
+  /// Loudness at [t], linearly interpolated between frames; 0 past the end.
+  double at(Duration t) {
+    final f = t.inMicroseconds / 1000 / frameMs;
+    if (f < 0 || f >= values.length) return 0;
+    final i = f.floor();
+    final a = values[i];
+    final b = i + 1 < values.length ? values[i + 1] : 0.0;
+    return a + (b - a) * (f - i);
+  }
 }
 
 /// Native-language voice (Amharic / Afaan Oromo) for the Professor:

@@ -215,6 +215,43 @@ void main() {
       expect(synth.spoken, hasLength(3));
     });
 
+    test('native clip drives the jaw from its real loudness envelope', () async {
+      final voice = FakeNativeVoice()
+        ..envelope = const AmplitudeEnvelope(50, [0, 0.5, 1, 0.25]);
+      final player = FakeClipPlayer()
+        ..positions = const [
+          Duration.zero,
+          Duration(milliseconds: 50),
+          Duration(milliseconds: 100),
+          Duration(milliseconds: 125),
+        ];
+      final (c, _, _, _) = await make(
+        FakeLiveTutor(),
+        voice: voice,
+        player: player,
+      );
+      final seen = <double?>[];
+      c.voiceLevel.addListener(() => seen.add(c.voiceLevel.value));
+      await c.start();
+      await pumpEventQueue();
+      expect(player.plays, greaterThan(0));
+      // silence is held just open enough to stay in the audio-driven state
+      expect(seen.take(4), [0.02, 0.5, 1.0, closeTo(0.625, 1e-9)]);
+      expect(c.voiceLevel.value, isNull, reason: 'cleared after playback');
+    });
+
+    test('envelope: parse, interpolate, silent past the end', () {
+      final e = AmplitudeEnvelope.fromJson({
+        'frameMs': 50,
+        'values': [0, 1, 2, 'x'],
+      })!;
+      expect(e.values, [0.0, 1.0, 1.0, 0.0]);
+      expect(e.at(const Duration(milliseconds: 25)), closeTo(0.5, 1e-9));
+      expect(e.at(const Duration(seconds: 5)), 0);
+      expect(AmplitudeEnvelope.fromJson({'frameMs': 0, 'values': [1]}), isNull);
+      expect(AmplitudeEnvelope.fromJson(null), isNull);
+    });
+
     test(
       'question in the native language is transcribed and answered',
       () async {

@@ -1,9 +1,97 @@
 # Character Rig Specification: Companion (Spark) & Professor
 
 **Status (2026-11-21):**
-- **Engineering pipeline:** ready.
-- **Designer Rive rigs:** not delivered yet.
-- **Interim:** Spark and the Professor are rendered by an **interim code rig** (`lib/features/mascot/puppet/`). They are redrawn as jointed vector parts and driven by the same `CharacterRigController`. A bundled `.riv` replaces them automatically.
+- **Rive rigs authored with the official Rive CLI (1.10.0):** `companion.rml` and `professor.rml`. Both verify with 0 errors and were previewed headless state by state (§Rive CLI rigs).
+- **Not yet built into `.riv`:** the CLI writes a signed `.riv` only with `rive . --publish`, and that needs `rive login`, which must be approved by a person in a browser. Until a `.riv` is bundled, the app keeps using the interim code rig.
+- **Engineering pipeline:** ready. A bundled `.riv` replaces the interim rig automatically.
+
+## Rive CLI rigs (what was built)
+
+| | Companion (Spark) | Professor |
+|---|---|---|
+| Source art (original vector) | `docs/design/characters/companion_art.svg` | `docs/design/characters/professor_art.svg` |
+| Rive project | `assets/brand/characters/companion/` (`rive.yaml`, `companion.rml`) | `assets/brand/characters/professor/` (`rive.yaml`, `professor.rml`) |
+| Artboard / state machine | `Companion` / `CompanionCharacter` | `Professor` / `ProfessorCharacter` |
+| Verified states | `docs/design/characters/companion_states_rive_cli.png` | `docs/design/characters/professor_states_rive_cli.png` |
+
+**Workflow:**
+1. Each SVG was converted once with `rive svg`. Every `<g>` sits on its joint pivot, so it imports as a rig node.
+2. The rig was then written by hand in RML, following `rive docs`: node ids, eye clips, look wrappers, lip-line vertices, view model, converters, state machine and animations.
+3. Check with `rive . --verify` and `rive inspect .`.
+
+**Skeleton (node hierarchy):**
+
+```text
+Root (feet, planted)
+├── LegL
+├── LegR
+└── Body (hip pivot)
+    ├── Torso
+    ├── Neck
+    ├── Head
+    │   ├── Ears
+    │   ├── EyeL / EyeR (clip) ── Look ── Pupil
+    │   │                     └── Lid
+    │   ├── Brows
+    │   ├── Nose
+    │   ├── Mouth ── LipLine (2 keyable bezier vertices)
+    │   │         ├── MouthO
+    │   │         └── Jaw
+    │   └── Hair (+ Professor: Glasses, Moustache)
+    └── ArmL / ArmR ── Forearm ── Hand
+```
+
+The ArmR / ArmL chains are two-bone, built from shoulder, elbow and wrist nodes.
+
+**View model `Character`**, named exactly as in `RigContract`:
+- **Numbers:** `emotion`, `gazeX`, `gazeY`, `mouthOpen`, `voiceAmplitude`, `idleVariant`
+- **Booleans:** `isListening`, `isSpeaking`, `isThinking`, `isHappy`, `reducedMotion`
+- **Triggers (both):** `tapReaction`, `celebrate`, `wave`, `laugh`, `correctAnswer`, `incorrectAnswer`, `achievementUnlocked`, `wakeUp`
+- **Professor-only triggers:** `explain`, `pointToExample`, `nod`, `goodbye`
+
+**State machine: five layers, applied in order:**
+1. **Body:**
+   - Three idle behaviours (rest/breathing, look-around, playful) chained at random by exit-time transitions with weights 3/2/1. Each idle is 3.5–5 s, so the 30 s loop is never one obvious cycle.
+   - `reducedMotion` → a still pose.
+2. **Face:**
+   - `emotion` 0–7 → brow pose plus lip-vertex deformation: neutral, happy, curious, thinking, surprised (O-mouth), encouraging, gently disappointed, sleepy. Transitions blend over 160–400 ms.
+   - `isHappy` turns neutral into happy.
+3. **Blink:**
+   - Random short or long open holds, single blinks and double blinks.
+   - `emotion==7` closes the eyes (sleep).
+4. **Gesture:**
+   - One-shot triggers via Any State, each with anticipation → action → follow-through → recovery, returning to rest after exit time.
+   - `tapReaction` picks its variant from `idleVariant` (0 surprise-giggle, 1 wave, 2 thumbs-up).
+   - `isThinking` / `isListening` hold poses (hand to chin; attentive lean) and have dedicated return animations.
+5. **Speech:**
+   - Mouth closed when not speaking.
+   - Authored talk loop when `isSpeaking` and no level is reported.
+   - When `voiceAmplitude > 0.01`, a 1D blend (`mouthOpen` 0..1 through a range-mapper converter) drives the jaw between closed and open. On the Professor the moustache lifts with the jaw.
+   - **Gaze:** `gazeX/gazeY` are data-bound to the pupil positions through a −1..1 → −6..6 px converter.
+
+**No whole-image motion:** the feet never move. Everything else is part-based motion of the Body/Head/Arm/Face nodes. Nothing translates, scales or rotates the character as a whole.
+
+**Verified with the CLI's headless renderer** (`rive . --data=… --advance=… --screenshot=…`):
+- **Companion:** idle, gaze, happy, surprised, disappointed, celebrate, wave, thinking, talk loop, mouth driven to 1.0 and to 0.3, sleep.
+- **Professor:** idle, listening, thinking, explain, point to example, speaking (audio-driven), correction, celebration, nod, goodbye, `isHappy`, gaze.
+- **30 s idle check:** frames 3 s apart differ by 15–22% of pixels for both characters (never static).
+- **Reduced motion:** 0% difference between frames 3 s apart.
+
+**Mouth and Addis audio (honest scope):**
+- The relay asks Addis for `pcm_16000`, which comes back as a 16 kHz WAV. It returns a 50 ms RMS loudness **envelope** with the clip.
+- While the clip plays, the app samples the envelope at the real playback position (audioplayers position events, interpolated). It sends the result as `voiceAmplitude` (≥ 0.02 while playing) and `mouthOpen`.
+- This is **amplitude-driven jaw motion, not phoneme or viseme lip-sync.**
+- English lines use on-device TTS, which reports no level. For those the rig plays its authored talk loop while `isSpeaking`.
+
+**Known limits:**
+- **No bones or meshes:** these are node-transform rigs. Limbs bend at joints and faces deform through keyed bezier vertices. A Rive-editor rig with bones and meshes would bend sleeves smoothly; here the shoulder joint shows a seam in big arm raises.
+- **Headless preview bug:** in the CLI's `--commands` mode, only the first capture of a session rendered on this machine. Each verification frame was therefore captured in its own process.
+- **Splash screen:** per Rive's plans, files published on the free plan show a Rive splash/watermark, and a paid plan (Cadet or above) removes it. No plan was purchased; upgrading needs the owner's approval.
+
+**Publish (owner action):**
+1. Run `rive login` and approve the code in a browser.
+2. Run `cd assets/brand/characters/companion && rive . --publish`, then the same in `professor/`. This writes `companion.riv` / `professor.riv` next to the `.rml`, where the app looks for them.
+3. Rebuild the app.
 
 ## Interim code rig (what exists today)
 
@@ -34,7 +122,7 @@
 - The art is code-drawn: flat vector with simple shading. It is not mesh-deformed and not illustrator-grade.
 - Mouth movement is an authored pattern while audio plays. It is not lip-sync.
 
-## 0. Blocker
+## 0. Blocker (historical — superseded by the Rive CLI rigs above)
 
 The animation this directive asks for needs artwork that is drawn and rigged by hand in the **Rive editor**: bones, meshes, facial controls, state machines and blend layers. Two things stop that from happening here:
 

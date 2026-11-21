@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -78,6 +79,13 @@ class TutorSessionController extends ChangeNotifier {
   /// platform reports none (then the UI shows no meter rather than a fake).
   final ValueNotifier<double?> level = ValueNotifier(null);
   StreamSubscription<double>? _levelSub;
+
+  /// Loudness (0..1) of the Professor's native-language clip at the current
+  /// playback position, from the relay's envelope of the real audio. Null
+  /// when nothing measurable is playing (on-device English TTS reports no
+  /// level, so the rig then uses its authored talk loop). Drives the jaw by
+  /// amplitude only; this is not phoneme lip-sync.
+  final ValueNotifier<double?> voiceLevel = ValueNotifier(null);
 
   /// The Professor's expression, derived from real session events
   /// (docs/INTERACTION_STATE_MAP.md §Professor).
@@ -423,10 +431,41 @@ class TutorSessionController extends ChangeNotifier {
     try {
       final clip = await _s.nativeVoice.synthesize(text, language: native.code);
       if (_disposed || !speakCoaching) return;
-      await _s.clipPlayer.play(
-        Uint8List.fromList(clip.bytes),
-        mimeType: clip.mimeType,
-      );
+      final env = clip.envelope;
+      // Real position from the player, interpolated between its (coarse,
+      // ~200 ms) position events so the jaw follows 50 ms envelope frames.
+      var pos = Duration.zero;
+      final since = Stopwatch();
+      void sample(Duration t) {
+        if (_disposed || env == null) return;
+        // >= 0.02 keeps the rig in its audio-driven mouth state while the
+        // clip plays, even through quiet frames.
+        voiceLevel.value = math.max(0.02, env.at(t));
+      }
+
+      final tick = env == null
+          ? null
+          : Timer.periodic(const Duration(milliseconds: 50), (_) {
+              if (since.isRunning) sample(pos + since.elapsed);
+            });
+      try {
+        await _s.clipPlayer.play(
+          Uint8List.fromList(clip.bytes),
+          mimeType: clip.mimeType,
+          onPosition: env == null
+              ? null
+              : (p) {
+                  pos = p;
+                  since
+                    ..reset()
+                    ..start();
+                  sample(p);
+                },
+        );
+      } finally {
+        tick?.cancel();
+        if (!_disposed) voiceLevel.value = null;
+      }
     } on TutorException {
       // Coaching stays visible as text; voice is a bonus.
     } catch (_) {}
@@ -524,6 +563,7 @@ class TutorSessionController extends ChangeNotifier {
     _disposed = true;
     unawaited(_levelSub?.cancel());
     level.dispose();
+    voiceLevel.dispose();
     unawaited(_s.speechIn.cancel());
     unawaited(_s.recorder.cancel());
     unawaited(_stopVoices());

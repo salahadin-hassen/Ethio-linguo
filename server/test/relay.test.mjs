@@ -112,3 +112,21 @@ async function withServerSpeech(speech, fn) {
   await new Promise((r) => server.once("listening", r));
   try { await fn(`http://127.0.0.1:${server.address().port}`); } finally { server.close(); }
 }
+
+test("wavEnvelope: per-frame loudness of a PCM16 WAV, 0..1, silence stays shut", async () => {
+  const { wavEnvelope } = await import("../src/providers/addis_speech.mjs");
+  const rate = 16000, n = rate; // 1 s: 0.5 s silence then 0.5 s tone
+  const pcm = Buffer.alloc(n * 2);
+  for (let i = n / 2; i < n; i++) pcm.writeInt16LE(Math.round(Math.sin(i / 8) * 12000), i * 2);
+  const h = Buffer.alloc(44);
+  h.write("RIFF", 0); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVE", 8);
+  h.write("fmt ", 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
+  h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
+  const env = wavEnvelope(Buffer.concat([h, pcm]), 50);
+  assert.equal(env.frameMs, 50);
+  assert.equal(env.values.length, 20);
+  assert.ok(env.values.slice(0, 10).every((v) => v === 0));
+  assert.ok(env.values.slice(11).every((v) => v > 0.9 && v <= 1));
+  assert.equal(wavEnvelope(Buffer.from("not a wav")), null);
+});

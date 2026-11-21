@@ -225,6 +225,7 @@ class RelayNativeVoice implements NativeVoice {
     return SpeechClip(
       base64Decode(j['audioBase64']! as String),
       (j['mimeType'] as String?) ?? 'audio/mpeg',
+      envelope: AmplitudeEnvelope.fromJson(j['envelope']),
     );
   }
 

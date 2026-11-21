@@ -5,6 +5,39 @@ import { ContractError } from "../contract.mjs";
 const BASE = "https://api.addisassistant.com/api/v1";
 export const VOICES = { am: "am-hamen", om: "om-ayyaantuu" };
 
+/// Loudness envelope of a PCM16 WAV: RMS per frame, normalised to the
+/// clip's own loud level (95th percentile) and clamped to 0..1. It drives
+/// the Professor's jaw while the clip plays. It is an AMPLITUDE envelope,
+/// not phoneme/viseme data: the mouth opens with loudness, not with sounds.
+export function wavEnvelope(buf, frameMs = 50) {
+  if (buf.length < 44 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") return null;
+  let off = 12, fmt = null, data = null;
+  while (off + 8 <= buf.length) {
+    const id = buf.toString("ascii", off, off + 4);
+    const size = buf.readUInt32LE(off + 4);
+    const body = off + 8;
+    if (id === "fmt ") fmt = { channels: buf.readUInt16LE(body + 2), rate: buf.readUInt32LE(body + 4), bits: buf.readUInt16LE(body + 14) };
+    if (id === "data") { data = buf.subarray(body, Math.min(buf.length, body + size)); break; }
+    off = body + size + (size & 1);
+  }
+  if (!fmt || !data || fmt.bits !== 16 || fmt.channels < 1) return null;
+  const step = fmt.channels * 2;
+  const perFrame = Math.max(1, Math.round((fmt.rate * frameMs) / 1000));
+  const rms = [];
+  for (let i = 0; i + step <= data.length; i += perFrame * step) {
+    let sum = 0, n = 0;
+    for (let j = i; j + step <= data.length && n < perFrame; j += step, n++) {
+      const v = data.readInt16LE(j) / 32768;
+      sum += v * v;
+    }
+    rms.push(Math.sqrt(sum / Math.max(1, n)));
+  }
+  if (!rms.length) return null;
+  const sorted = [...rms].sort((a, b) => a - b);
+  const ref = Math.max(sorted[Math.floor(sorted.length * 0.95)] ?? 0, 0.02);
+  return { frameMs, values: rms.map((r) => Math.round(Math.min(1, r / ref) * 100) / 100) };
+}
+
 export function createAddisSpeech({ apiKey = process.env.ADDIS_API_KEY, fetchImpl = fetch } = {}) {
   const cache = new Map(); // text+lang -> audio (bounded), saves credits on repeats
   const remember = (k, v) => {
@@ -31,7 +64,7 @@ export function createAddisSpeech({ apiKey = process.env.ADDIS_API_KEY, fetchImp
           text: clean,
           voice_id: VOICES[language],
           language,
-          output_format: "mp3_44100",
+          output_format: "pcm_16000", // returned as a 16 kHz WAV; small, and we can read its loudness
           client_request_id: `tts-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         }),
         signal: AbortSignal.timeout(25_000),
@@ -41,7 +74,9 @@ export function createAddisSpeech({ apiKey = process.env.ADDIS_API_KEY, fetchImp
       const dataUrl = typeof d?.audio === "string" ? d.audio : null;
       if (!dataUrl?.startsWith("data:")) throw new ContractError("provider_error", "No audio returned.", 502);
       const [meta, b64] = dataUrl.split(",", 2);
-      const out = { mimeType: meta.slice(5).split(";")[0] || "audio/mpeg", audioBase64: b64, durationSeconds: d.duration_seconds ?? null };
+      const mimeType = meta.slice(5).split(";")[0] || "audio/wav";
+      const envelope = mimeType.includes("wav") ? wavEnvelope(Buffer.from(b64, "base64")) : null;
+      const out = { mimeType, audioBase64: b64, durationSeconds: d.duration_seconds ?? null, envelope };
       remember(key, out);
       return out;
     },

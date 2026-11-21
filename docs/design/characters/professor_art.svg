@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <!-- The Professor, the teacher. Original vector art. Every <g> sits on a joint
+       (its translate is the pivot) so it imports as a rig node. -->
+  <defs>
+    <linearGradient id="skin" x1="0" y1="-150" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#94603F"/>
+      <stop offset="1" stop-color="#6E4128"/>
+    </linearGradient>
+    <linearGradient id="jacket" x1="-70" y1="-150" x2="70" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E8A6E"/>
+      <stop offset="0.55" stop-color="#1F6E57"/>
+      <stop offset="1" stop-color="#155240"/>
+    </linearGradient>
+    <linearGradient id="sleeve" x1="-12" y1="0" x2="14" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E8A6E"/>
+      <stop offset="1" stop-color="#175A46"/>
+    </linearGradient>
+    <linearGradient id="jeans" x1="-30" y1="0" x2="30" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2C3350"/>
+      <stop offset="1" stop-color="#1D2238"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="-60" x2="0" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCDDE6"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="200" cy="482" rx="78" ry="11" fill="#231B2E" fill-opacity="0.16"/>
+
+  <g id="Root" transform="translate(200,480)">
+    <!-- Legs + shoes (planted) -->
+    <g id="LegL" transform="translate(-24,-118)">
+      <path d="M-17 0 C-17 0 17 0 17 0 L15 92 C15 98 -13 98 -14 92 Z" fill="url(#jeans)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-26 88 C-26 76 -12 72 0 72 C14 72 24 78 24 90 L24 100 C24 104 -26 104 -26 100 Z" fill="#6B3E26" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-25 96 L23 96" fill="none" stroke="#8C5636" stroke-width="4"/>
+    </g>
+    <g id="LegR" transform="translate(24,-118)">
+      <path d="M-17 0 C-17 0 17 0 17 0 L14 92 C13 98 -15 98 -15 92 Z" fill="url(#jeans)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-24 90 C-24 78 -14 72 0 72 C12 72 26 76 26 88 L26 100 C26 104 -24 104 -24 100 Z" fill="#6B3E26" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-23 96 L25 96" fill="none" stroke="#8C5636" stroke-width="4"/>
+    </g>
+
+    <!-- Upper body pivots at the hips -->
+    <g id="Body" transform="translate(0,-112)">
+      <g id="Torso">
+        <!-- green jacket -->
+        <path d="M-62 -128 C-70 -126 -76 -112 -76 -96 L-72 -10 C-72 -2 -64 4 -56 4 L56 4 C64 4 72 -2 72 -10 L76 -96 C76 -112 70 -126 62 -128 C40 -134 -40 -134 -62 -128 Z" fill="url(#jacket)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+        <!-- dark waistcoat and white shirt collar -->
+        <path d="M-26 -130 L26 -130 L24 0 L-24 0 Z" fill="#23303A" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M-16 -132 L0 -108 L16 -132 Z" fill="#FFFFFF" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M0 -108 L-12 -40 M0 -108 L12 -40" fill="none" stroke="#3A4A57" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="0" cy="-72" r="4" fill="#F5C451" stroke="#231B2E" stroke-width="2"/>
+        <circle cx="0" cy="-46" r="4" fill="#F5C451" stroke="#231B2E" stroke-width="2"/>
+        <circle cx="0" cy="-20" r="4" fill="#F5C451" stroke="#231B2E" stroke-width="2"/>
+        <!-- netela: white cotton shawl with a tibeb border, draped over both shoulders -->
+        <path d="M-64 -128 C-52 -134 -40 -134 -30 -130 L-34 -6 L-58 -6 C-60 -50 -62 -90 -64 -128 Z" fill="#FBF8F1" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M64 -128 C52 -134 40 -134 30 -130 L34 -6 L58 -6 C60 -50 62 -90 64 -128 Z" fill="#FBF8F1" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M-56 -30 L-36 -30 M56 -30 L36 -30" fill="none" stroke="#E0473B" stroke-width="5"/>
+        <path d="M-54 -20 L-50 -16 L-46 -20 L-42 -16 L-38 -20 M54 -20 L50 -16 L46 -20 L42 -16 L38 -20" fill="none" stroke="#20B8A6" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M-56 -11 L-36 -11 M56 -11 L36 -11" fill="none" stroke="#F5C451" stroke-width="4"/>
+      </g>
+
+      <g id="Neck" transform="translate(0,-130)">
+        <path d="M-15 6 L-14 -14 L14 -14 L15 6 Z" fill="#5E3721" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+      </g>
+
+      <!-- Head pivots at the neck -->
+      <g id="Head" transform="translate(0,-140)">
+        <g id="EarL" transform="translate(-70,-62)">
+          <path d="M6 -16 C-10 -18 -16 -2 -12 10 C-8 20 4 20 8 14 Z" fill="#7A472C" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M2 -6 C-4 -6 -6 4 0 8" fill="none" stroke="#5E3721" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <g id="EarR" transform="translate(70,-62)">
+          <path d="M-6 -16 C10 -18 16 -2 12 10 C8 20 -4 20 -8 14 Z" fill="#7A472C" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M-2 -6 C4 -6 6 4 0 8" fill="none" stroke="#5E3721" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <!-- face: soft rounded square -->
+        <path d="M0 -150 C42 -150 72 -128 74 -86 C76 -40 50 -4 0 -4 C-50 -4 -76 -40 -74 -86 C-72 -128 -42 -150 0 -150 Z" fill="url(#skin)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+        <!-- form shadow on the right of the face -->
+        <path d="M48 -132 C70 -110 76 -70 60 -36 C50 -18 30 -8 10 -6 C40 -20 58 -54 56 -92 C55 -110 52 -122 48 -132 Z" fill="#5E3721" fill-opacity="0.45"/>
+        <ellipse cx="-44" cy="-50" rx="14" ry="9" fill="#FF7A6B" fill-opacity="0.38"/>
+        <ellipse cx="44" cy="-50" rx="14" ry="9" fill="#FF7A6B" fill-opacity="0.38"/>
+
+        <!-- Eyes: white, pupil group (gaze), lid (blink) -->
+        <g id="EyeL" transform="translate(-27,-76)">
+          <ellipse cx="0" cy="0" rx="14" ry="15" fill="#FFFFFF" stroke="#231B2E" stroke-width="4"/>
+          <g id="PupilL">
+            <circle cx="0" cy="1" r="9" fill="#4A2E1C"/>
+            <circle cx="0" cy="1" r="5" fill="#120B08"/>
+            <circle cx="-4" cy="-4" r="3.6" fill="#FFFFFF"/>
+            <circle cx="4" cy="5" r="1.6" fill="#FFFFFF" fill-opacity="0.8"/>
+          </g>
+          <clipPath id="eyeClipL"><ellipse cx="0" cy="0" rx="14" ry="15"/></clipPath>
+          <g clip-path="url(#eyeClipL)">
+          <g id="LidL" transform="translate(0,-21)">
+            <path d="M-20 4 L20 4 L20 36 L-20 36 Z" fill="#8A583A"/>
+            <path d="M-16 36 C-6 40 6 40 16 36" fill="none" stroke="#231B2E" stroke-width="4" stroke-linecap="round"/>
+          </g>
+          </g>
+        </g>
+        <g id="EyeR" transform="translate(27,-76)">
+          <ellipse cx="0" cy="0" rx="14" ry="15" fill="#FFFFFF" stroke="#231B2E" stroke-width="4"/>
+          <g id="PupilR">
+            <circle cx="0" cy="1" r="9" fill="#4A2E1C"/>
+            <circle cx="0" cy="1" r="5" fill="#120B08"/>
+            <circle cx="-4" cy="-4" r="3.6" fill="#FFFFFF"/>
+            <circle cx="4" cy="5" r="1.6" fill="#FFFFFF" fill-opacity="0.8"/>
+          </g>
+          <clipPath id="eyeClipR"><ellipse cx="0" cy="0" rx="14" ry="15"/></clipPath>
+          <g clip-path="url(#eyeClipR)">
+          <g id="LidR" transform="translate(0,-21)">
+            <path d="M-20 4 L20 4 L20 36 L-20 36 Z" fill="#8A583A"/>
+            <path d="M-16 36 C-6 40 6 40 16 36" fill="none" stroke="#231B2E" stroke-width="4" stroke-linecap="round"/>
+          </g>
+          </g>
+        </g>
+
+        <g id="BrowL" transform="translate(-27,-106)">
+          <path d="M-15 3 C-8 -4 6 -5 15 -1" fill="none" stroke="#231B2E" stroke-width="13" stroke-linecap="round"/>
+          <path d="M-15 3 C-8 -4 6 -5 15 -1" fill="none" stroke="#F4F4F8" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <g id="BrowR" transform="translate(27,-106)">
+          <path d="M-15 -1 C-6 -5 8 -4 15 3" fill="none" stroke="#231B2E" stroke-width="13" stroke-linecap="round"/>
+          <path d="M-15 -1 C-6 -5 8 -4 15 3" fill="none" stroke="#F4F4F8" stroke-width="8" stroke-linecap="round"/>
+        </g>
+
+        <g id="Nose" transform="translate(0,-54)">
+          <path d="M-8 -2 C-6 6 6 6 8 -2" fill="none" stroke="#4C2B19" stroke-width="4" stroke-linecap="round"/>
+        </g>
+
+        <!-- Gold round glasses (fixed to the head) -->
+        <g id="Glasses" transform="translate(0,-76)">
+          <circle cx="-27" cy="0" r="21" fill="#FFFFFF" fill-opacity="0.12" stroke="#D8A23A" stroke-width="5"/>
+          <circle cx="27" cy="0" r="21" fill="#FFFFFF" fill-opacity="0.12" stroke="#D8A23A" stroke-width="5"/>
+          <path d="M-7 -2 C-3 -6 3 -6 7 -2" fill="none" stroke="#D8A23A" stroke-width="4" stroke-linecap="round"/>
+          <path d="M-48 -4 L-70 -10 M48 -4 L70 -10" fill="none" stroke="#D8A23A" stroke-width="4" stroke-linecap="round"/>
+          <path d="M-38 -12 C-34 -16 -28 -17 -24 -16" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.8"/>
+        </g>
+        <!-- crow's feet: a kind, smiling face -->
+        <path d="M-60 -78 L-68 -82 M-60 -70 L-68 -68 M60 -78 L68 -82 M60 -70 L68 -68" fill="none" stroke="#5E3721" stroke-width="3" stroke-linecap="round"/>
+        <!-- Mouth: inner open mouth (jaw) under the lip line -->
+        <g id="Mouth" transform="translate(0,-28)">
+          <g id="Jaw">
+            <path d="M-16 -2 C-12 -2 12 -2 16 -2 C14 12 6 18 0 18 C-6 18 -14 12 -16 -2 Z" fill="#6E1F2A" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+            <path d="M-9 12 C-6 7 6 7 9 12 C6 16 -6 16 -9 12 Z" fill="#E8737B"/>
+            <path d="M-13 -1 L13 -1 L12 3 L-12 3 Z" fill="#FFFFFF"/>
+          </g>
+          <path d="M-18 -2 C-10 8 10 8 18 -2" fill="none" stroke="#231B2E" stroke-width="5" stroke-linecap="round"/>
+        </g>
+
+        <!-- White moustache: rides on the upper lip so it lifts when he talks -->
+        <g id="Moustache" transform="translate(0,-40)">
+          <path d="M0 -4 C-8 -12 -26 -12 -34 -2 C-38 4 -36 10 -30 8 C-22 2 -10 4 0 2 C10 4 22 2 30 8 C36 10 38 4 34 -2 C26 -12 8 -12 0 -4 Z" fill="#F7F7FB" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+        </g>
+        <!-- White cloud hair around a bald crown -->
+        <g id="Hair" transform="translate(0,-142)">
+          <ellipse id="Scalp" cx="0" cy="-8" rx="58" ry="20" fill="#94603F"/>
+          <path d="M-70 52 C-92 46 -98 20 -86 4 C-100 -14 -88 -40 -66 -40 C-62 -64 -36 -72 -18 -58 C-6 -76 22 -74 30 -56 C50 -70 76 -58 74 -36 C96 -32 102 -6 88 8 C100 26 90 50 70 52 C76 30 70 6 56 -8 C40 -24 -40 -24 -56 -8 C-70 6 -76 30 -70 52 Z" fill="url(#hair)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M-74 -14 C-68 -20 -60 -18 -58 -12 M64 -18 C70 -22 78 -18 78 -10 M-30 -50 C-22 -56 -12 -54 -10 -48 M14 -52 C22 -58 32 -54 32 -46" fill="none" stroke="#B9BBCB" stroke-width="3" stroke-linecap="round"/>
+          <!-- bald crown shine -->
+          <path d="M-22 -10 C-12 -18 12 -18 22 -10" fill="none" stroke="#B07A55" stroke-width="5" stroke-linecap="round" stroke-opacity="0.7"/>
+        </g>
+      </g>
+
+      <!-- Arms: shoulder -> elbow -> wrist chains -->
+      <g id="ArmL" transform="translate(-64,-116)">
+        <path d="M-14 -4 C-14 -14 14 -14 14 -4 L12 60 C12 70 -12 70 -12 60 Z" fill="url(#sleeve)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+        <g id="ForearmL" transform="translate(0,60)">
+          <path d="M-12 -6 C-12 -14 12 -14 12 -6 L10 48 C10 56 -10 56 -10 48 Z" fill="url(#sleeve)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M-11 44 L11 44" fill="none" stroke="#FFFFFF" stroke-width="6"/>
+          <g id="HandL" transform="translate(0,54)">
+            <path d="M-11 -6 C-14 4 -10 16 0 17 C10 16 14 4 11 -6 C8 -10 -8 -10 -11 -6 Z" fill="#8A583A" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M-10 2 C-16 0 -18 8 -12 10" fill="#8A583A" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+          </g>
+        </g>
+      </g>
+      <g id="ArmR" transform="translate(64,-116)">
+        <path d="M-14 -4 C-14 -14 14 -14 14 -4 L12 60 C12 70 -12 70 -12 60 Z" fill="url(#sleeve)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+        <g id="ForearmR" transform="translate(0,60)">
+          <path d="M-12 -6 C-12 -14 12 -14 12 -6 L10 48 C10 56 -10 56 -10 48 Z" fill="url(#sleeve)" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M-11 44 L11 44" fill="none" stroke="#FFFFFF" stroke-width="6"/>
+          <g id="HandR" transform="translate(0,54)">
+            <path d="M-11 -6 C-14 4 -10 16 0 17 C10 16 14 4 11 -6 C8 -10 -8 -10 -11 -6 Z" fill="#8A583A" stroke="#231B2E" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M10 2 C16 0 18 8 12 10" fill="#8A583A" stroke="#231B2E" stroke-width="4" stroke-linejoin="round"/>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

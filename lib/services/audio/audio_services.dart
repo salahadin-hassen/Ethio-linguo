@@ -22,8 +22,13 @@ abstract interface class VoiceRecorder {
 }
 
 abstract interface class AudioClipPlayer {
-  /// Plays a clip and completes when playback ends.
-  Future<void> play(Uint8List bytes, {required String mimeType});
+  /// Plays a clip and completes when playback ends. [onPosition] reports
+  /// the real playback position (used to sync the character's jaw).
+  Future<void> play(
+    Uint8List bytes, {
+    required String mimeType,
+    void Function(Duration position)? onPosition,
+  });
   Future<void> stop();
 }
 
@@ -118,12 +123,23 @@ class PlatformAudioClipPlayer implements AudioClipPlayer {
   AudioPlayer? _p;
 
   @override
-  Future<void> play(Uint8List bytes, {required String mimeType}) async {
+  Future<void> play(
+    Uint8List bytes, {
+    required String mimeType,
+    void Function(Duration position)? onPosition,
+  }) async {
     final p = _p ??= AudioPlayer();
     await p.stop();
     final done = p.onPlayerComplete.first;
-    await p.play(BytesSource(bytes, mimeType: mimeType));
-    await done.timeout(const Duration(seconds: 60), onTimeout: () {});
+    final sub = onPosition == null
+        ? null
+        : p.onPositionChanged.listen(onPosition);
+    try {
+      await p.play(BytesSource(bytes, mimeType: mimeType));
+      await done.timeout(const Duration(seconds: 60), onTimeout: () {});
+    } finally {
+      await sub?.cancel();
+    }
   }
 
   @override
@@ -151,7 +167,11 @@ class UnavailableVoiceRecorder implements VoiceRecorder {
 class SilentAudioClipPlayer implements AudioClipPlayer {
   const SilentAudioClipPlayer();
   @override
-  Future<void> play(Uint8List bytes, {required String mimeType}) async {}
+  Future<void> play(
+    Uint8List bytes, {
+    required String mimeType,
+    void Function(Duration position)? onPosition,
+  }) async {}
   @override
   Future<void> stop() async {}
 }

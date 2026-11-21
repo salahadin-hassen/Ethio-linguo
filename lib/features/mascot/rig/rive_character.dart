@@ -168,7 +168,12 @@ class _RiveCharacterState extends State<RiveCharacter> {
     b(RigContract.isThinking, c.thinking);
     b(RigContract.isHappy, c.happy);
     b(RigContract.reducedMotion, widget.reducedMotion);
-    for (final t in c.drainTriggers()) {
+    // Reduced motion: the rig holds a still body (reducedMotion input) and
+    // body gestures are not fired; expression changes still come through
+    // the emotion number. Triggers are drained either way.
+    final triggers = c.drainTriggers();
+    if (widget.reducedMotion) return;
+    for (final t in triggers) {
       final p = vm?.trigger(t);
       if (p != null) {
         p.trigger();

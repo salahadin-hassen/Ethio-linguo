@@ -124,12 +124,13 @@ class FakeSynth implements SpeechSynthesizer {
 class FakeNativeVoice implements NativeVoice {
   final spoken = <String>[];
   String transcript = 'catch up ማለት ምን ማለት ነው?';
+  AmplitudeEnvelope? envelope;
   @override
   Future<bool> available() async => true;
   @override
   Future<SpeechClip> synthesize(String text, {required String language}) async {
     spoken.add('$language:$text');
-    return const SpeechClip([0, 1, 2], 'audio/mpeg');
+    return SpeechClip(const [0, 1, 2], 'audio/wav', envelope: envelope);
   }
 
   @override
@@ -152,9 +153,20 @@ class FakeRecorder implements VoiceRecorder {
 
 class FakeClipPlayer implements AudioClipPlayer {
   int plays = 0;
+
+  /// Playback positions to report, as a real player would while playing.
+  List<Duration> positions = const [];
   @override
-  Future<void> play(Uint8List bytes, {required String mimeType}) async =>
-      plays++;
+  Future<void> play(
+    Uint8List bytes, {
+    required String mimeType,
+    void Function(Duration position)? onPosition,
+  }) async {
+    plays++;
+    for (final p in positions) {
+      onPosition?.call(p);
+    }
+  }
   @override
   Future<void> stop() async {}
 }
