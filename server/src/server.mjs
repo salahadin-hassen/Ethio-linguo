@@ -128,15 +128,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // call failed with ETIMEDOUT where a TCP connect takes ~0.5-4 s. Measured
   // 2026-11-21: 0/2 succeed at 250 ms, 2/2 at 3000 ms.
   net.setDefaultAutoSelectFamilyAttemptTimeout(Number(process.env.CONNECT_ATTEMPT_MS || 3000));
-  // TUTOR_PROVIDER=addis|anthropic (default: whichever key is present, Addis first).
-  const choice = process.env.TUTOR_PROVIDER || (process.env.ADDIS_API_KEY ? "addis" : "anthropic");
+  // TUTOR_PROVIDER=addis|anthropic. Default: addis (the intended tutor). Anthropic
+  // is used only when explicitly selected, never as a silent fallback.
+  const choice = (process.env.TUTOR_PROVIDER || "addis").trim().toLowerCase();
   const provider =
     choice === "addis" && process.env.ADDIS_API_KEY ? createAddisProvider()
     : choice === "anthropic" && process.env.ANTHROPIC_API_KEY ? createAnthropicProvider()
     : null;
-  if (!provider) console.warn(`No credentials for provider "${choice}": /v1/health reports ok=false and turns return 503.`);
+  if (!provider) {
+    const need = choice === "anthropic" ? "ANTHROPIC_API_KEY" : "ADDIS_API_KEY";
+    console.warn(`Tutor provider "${choice}" is not configured: set ${need}. /v1/health reports ok=false and turns return 503.`);
+  }
   const port = Number(process.env.PORT || 8787);
   const speech = process.env.ADDIS_API_KEY ? createAddisSpeech() : null;
   const english = process.env.GEMINI_API_KEY ? createGeminiSpeech() : null;
+  // Readiness by name only; never log key values.
+  console.log(`config: tutor=${provider ? choice : "MISSING"} native-voice=${speech ? "addis" : "MISSING (ADDIS_API_KEY)"} english-voice=${english ? english.model : "phone fallback (GEMINI_API_KEY unset)"}`);
   createServer({ provider, speech, english }).listen(port, "0.0.0.0", () => console.log(`tutor relay on :${port} provider=${provider?.name ?? "none"} model=${provider?.model ?? "-"}`));
 }
