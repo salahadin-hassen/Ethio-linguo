@@ -62,7 +62,7 @@ app.*.map.json
 server/.env
 
 # Submission package build outputs
-submission/*.apk
+# submission APK is committed on purpose (download for judges)
 submission/*.zip
 submission/screenshots/
 submission/recordings/
