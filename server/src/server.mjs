@@ -1,5 +1,6 @@
 import http from "node:http";
 import { ContractError, parseTurnRequest } from "./contract.mjs";
+import { createAddisProvider } from "./providers/addis.mjs";
 import { createAnthropicProvider } from "./providers/anthropic.mjs";
 
 // Stateless tutor relay. Privacy: receives TEXT only (speech is recognised on
@@ -45,8 +46,13 @@ export function createServer({ provider, allowOrigin = process.env.ALLOW_ORIGIN 
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const provider = process.env.ANTHROPIC_API_KEY ? createAnthropicProvider() : null;
-  if (!provider) console.warn("ANTHROPIC_API_KEY not set: /v1/health reports ok=false and turns return 503.");
+  // TUTOR_PROVIDER=addis|anthropic (default: whichever key is present, Addis first).
+  const choice = process.env.TUTOR_PROVIDER || (process.env.ADDIS_API_KEY ? "addis" : "anthropic");
+  const provider =
+    choice === "addis" && process.env.ADDIS_API_KEY ? createAddisProvider()
+    : choice === "anthropic" && process.env.ANTHROPIC_API_KEY ? createAnthropicProvider()
+    : null;
+  if (!provider) console.warn(`No credentials for provider "${choice}": /v1/health reports ok=false and turns return 503.`);
   const port = Number(process.env.PORT || 8787);
   createServer({ provider }).listen(port, "0.0.0.0", () => console.log(`tutor relay on :${port} provider=${provider?.name ?? "none"} model=${provider?.model ?? "-"}`));
 }

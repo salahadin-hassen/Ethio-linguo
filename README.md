@@ -51,8 +51,8 @@ Pull requests go into `integration/hackathon-mvp`. `main` changes only through a
 - **Offline:** the whole journey above passes an automated test with networking blocked.
 - **The Professor:** speech in → AI tutor → speech out, with a transcript and feedback.
   - Implemented and tested with test doubles. The relay lives in `server/`.
-  - ⚠️ **A live AI turn has not been verified yet**, because no valid provider key was available.
-  - Until one is configured, the app honestly shows "The Professor is offline". See `docs/AI_PROVIDER_INTEGRATION.md`.
+  - ✅ **A live AI conversation is verified with Addis AI** in both Amharic and Afaan Oromo, at about 2.7 s per turn (`test/live/`).
+  - Without the relay, the app honestly shows "The Professor is offline". See `docs/AI_PROVIDER_INTEGRATION.md`.
 - **Translations:** all Amharic and Afaan Oromo content is a labelled **draft** until a native speaker reviews it (`docs/CONTENT_GOVERNANCE.md`).
 
 Architecture: `docs/ARCHITECTURE.md` and `docs/ADR/`.
@@ -62,7 +62,7 @@ Architecture: `docs/ARCHITECTURE.md` and `docs/ADR/`.
 ```bash
 flutter pub get
 flutter run                                   # Android device/emulator (or -d linux / -d chrome)
-(cd server && cp .env.example .env && npm install && npm start)          # tutor relay; set ANTHROPIC_API_KEY in server/.env
+(cd server && cp .env.example .env && npm install && npm start)          # tutor relay; set ADDIS_API_KEY in server/.env
 flutter run --dart-define=TUTOR_BASE_URL=http://<relay-host>:8787
 ```
 

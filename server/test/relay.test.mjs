@@ -44,3 +44,32 @@ test("request is clamped and sanitised", () => {
   assert.equal(r.history.length, 12);
   assert.deepEqual(r.targetExpressions, ["Sounds good"]);
 });
+
+import { parseAddisReply, buildAddisPrompt, createAddisProvider } from "../src/providers/addis.mjs";
+
+const addisReq = parseTurnRequest({
+  learner: { nativeLanguage: "am", level: 1 },
+  lesson: { sceneSummary: "Two friends meet at a bus stop.", transcript: ["Liya: Long time no see!"] },
+  targetExpressions: ["Long time no see"],
+  utterance: { text: "long time no see i been busy" },
+});
+
+test("addis prompt carries scene, targets and the learner utterance", () => {
+  const p = buildAddisPrompt(addisReq);
+  for (const s of ["bus stop", "Long time no see", "i been busy", "Amharic", "JSON"]) assert.ok(p.includes(s), s);
+});
+
+test("addis reply in a code fence is parsed and mapped to the contract", () => {
+  const text = '```json\n{"reply":"Nice!","translation":"ጥሩ!","feedback_kind":"grammar","note":"Say I have been.","note_native":"…","suggestion":"I have been busy.","used":["Long time no see","bogus"]}\n```';
+  const out = parseAddisReply(text, addisReq);
+  assert.equal(out.reply.text, "Nice!");
+  assert.equal(out.feedback.kind, "grammar");
+  assert.equal(out.feedback.suggestion, "I have been busy.");
+  assert.deepEqual(out.usedExpressions, ["Long time no see"]);
+});
+
+test("addis non-JSON reply -> provider_error, bad key -> unavailable", async () => {
+  assert.throws(() => parseAddisReply("sorry", addisReq), /unreadable/);
+  const p = createAddisProvider({ apiKey: "x", fetchImpl: async () => new Response("{}", { status: 401 }) });
+  await assert.rejects(p.turn(addisReq), (e) => e.code === "unavailable");
+});

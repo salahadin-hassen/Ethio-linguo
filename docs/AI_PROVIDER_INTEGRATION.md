@@ -8,7 +8,7 @@
 | On-device speech in (`speech_to_text`) and out (`flutter_tts`) | ✅ implemented for Android, iOS and web. Not available on Linux desktop. **Not yet verified on a physical phone** |
 | `TutorSessionController`: state machine, feedback, XP after 3 or more learner turns, summary | ✅ implemented, unit- and widget-tested with test doubles |
 | Relay `server/` (Node, `@anthropic-ai/sdk`), provider adapter, contract tests | ✅ implemented, 5 tests pass |
-| **Live AI turn end to end** | ❌ **Not verified.** The only credential on the build machine (`ANTHROPIC_API_KEY`) was rejected by the API (`authentication_error`). The relay then returned `503 unavailable`, as designed. |
+| **Live AI turn end to end** | ✅ **Verified 2026-11-21 with Addis AI** (`TUTOR_PROVIDER=addis`): opening and learner turns in Amharic and in Afaan Oromo, real roleplay replies, grammar feedback and native-language translations, about 2.7 s per turn. Evidence: `test/live/live_tutor_test.dart`, which drives the app's Dart client against the running relay. The Anthropic adapter is still unverified because the available key was rejected. |
 
 Until a valid key is configured, the app shows *"The Professor is offline right now"* with an "Offline practice (not AI)" section. It never shows a scripted reply as if it were AI.
 
@@ -61,7 +61,13 @@ sequenceDiagram
 - `GET /v1/health` returns `{ok, provider, model, contract}`. It reports the configuration only and does not test the key.
 - `POST /v1/tutor/turn` returns 200 with a response body, or `{error:{code,message}}`. The code is one of `unavailable` (503), `rate_limited` (429), `bad_request` (400/413) or `provider_error` (502).
 
-**Provider adapter** (`server/src/providers/anthropic.mjs`):
+**Provider adapters:**
+
+- `server/src/providers/addis.mjs` is the **default** when `ADDIS_API_KEY` is set. It uses Addis AI `POST /api/v1/chat_generate` with `x-api-key`.
+  - The native API ignores `system_prompt`, so the persona, scene, history and an output contract go into `prompt`.
+  - The reply is a JSON object, which may come inside a code fence. It is parsed and validated, and anything unreadable becomes `provider_error`.
+  - `target_language` is set to the learner's language.
+- `server/src/providers/anthropic.mjs` is used when `TUTOR_PROVIDER=anthropic`:
 - Calls `client.beta.messages.create` with structured JSON output (`output_config.format`) and `effort: "low"` to keep voice latency down.
 - Enables server-side refusal fallbacks (`fallbacks: "default"`).
 - Uses a 20 s timeout and 1 retry, and maps the SDK's typed errors to contract codes.
@@ -77,7 +83,7 @@ The app needs no change. A device-side provider, such as an on-device model, wou
 
 ```bash
 cd server
-cp .env.example .env              # put ANTHROPIC_API_KEY=... here (git-ignored)
+cp .env.example .env              # TUTOR_PROVIDER=addis + ADDIS_API_KEY=... (git-ignored)
 npm install && npm test && npm start   # listens on :8787
 # app (phone on the same network as the relay):
 flutter run --dart-define=TUTOR_BASE_URL=http://<laptop-ip>:8787
