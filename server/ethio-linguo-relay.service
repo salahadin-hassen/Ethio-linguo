@@ -1,0 +1,14 @@
+[Unit]
+Description=Ethio-Linguo tutor relay (Professor AI, port 8787)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/ethio-linguo/server
+ExecStart=/usr/bin/node --env-file-if-exists=.env src/server.mjs
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

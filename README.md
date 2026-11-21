@@ -80,6 +80,16 @@ npm test
 npm start                   # listens on port 8787
 ```
 
+For a demo machine, run it as a service so it survives closed terminals, crashes and reboots (Linux, systemd):
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp server/ethio-linguo-relay.service ~/.config/systemd/user/   # edit the paths if the repo is elsewhere
+systemctl --user daemon-reload && systemctl --user enable --now ethio-linguo-relay
+loginctl enable-linger "$USER"                                  # keep it running without a login session
+journalctl --user -u ethio-linguo-relay -f                       # logs
+```
+
 Check it: open `http://<laptop-ip>:8787/v1/health` (it should say `"ok":true`). Find the laptop IP with `ip -4 addr` (Linux) or `ipconfig` (Windows). If a firewall blocks the phone, allow port 8787 from your local network only.
 
 Optional: install `ffmpeg` on the relay machine so the Professor's mouth follows the measured loudness of his voice.
