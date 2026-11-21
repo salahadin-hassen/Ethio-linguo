@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 /// Brand colours (coral, teal, gold, periwinkle) are used as FILLS and always
 /// carry [indigo] text on top (>= 4.4:1 contrast). For coloured TEXT on light
 /// surfaces use the `*Ink` variants, which pass WCAG AA (>= 4.5:1) on ivory.
-/// See docs/design/DESIGN_SYSTEM.md for the measured contrast table.
+/// See docs/DESIGN_SYSTEM.md for the measured contrast table.
 abstract final class AppColors {
   // Core brand palette (starting tokens from the brief).
   static const indigo = Color(0xFF242443);
