@@ -21,6 +21,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    # Bundled offline media packages (Engineer 2). Schema: docs/INTEGRATION_CONTRACTS.md §3
+    - assets/content/media/
+
   fonts:
     - family: Nunito
       fonts:
