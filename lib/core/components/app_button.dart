@@ -86,16 +86,20 @@ class AppButton extends StatelessWidget {
           Icon(icon, color: fg, size: 22),
           const SizedBox(width: 8),
         ],
+        // Shrink a long label to fit (e.g. two buttons side by side)
+        // rather than cutting it off with an ellipsis.
         Flexible(
-          child: Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppType.label.copyWith(
-              color: fg,
-              letterSpacing: 0.8,
-              fontSize: 16,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: AppType.label.copyWith(
+                color: fg,
+                letterSpacing: 0.8,
+                fontSize: 16,
+              ),
             ),
           ),
         ),
