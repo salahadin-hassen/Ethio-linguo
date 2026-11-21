@@ -93,8 +93,10 @@ class FakeRecognizer implements SpeechRecognizer {
   Future<void> listen({
     required String localeId,
     required void Function(RecognizedSpeech) onResult,
+    void Function(double level)? onLevel,
   }) async {
     if (_queue.isEmpty) return;
+    onLevel?.call(0.7);
     final say = _queue.removeAt(0);
     onResult(RecognizedSpeech(say.split(' ').first, isFinal: false));
     onResult(RecognizedSpeech(say, confidence: 0.9, isFinal: true));
@@ -136,6 +138,8 @@ class FakeNativeVoice implements NativeVoice {
 }
 
 class FakeRecorder implements VoiceRecorder {
+  @override
+  Stream<double> get levels => const Stream.empty();
   @override
   Future<bool> hasPermission() async => true;
   @override

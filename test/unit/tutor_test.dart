@@ -7,7 +7,9 @@ import 'package:ethio_linguo/data/local/progress_store.dart';
 import 'package:ethio_linguo/data/models/conversation.dart';
 import 'package:ethio_linguo/data/models/language.dart';
 import 'package:ethio_linguo/data/models/progress.dart';
+import 'package:ethio_linguo/features/mascot/characters.dart';
 import 'package:ethio_linguo/features/speak/tutor_session_controller.dart';
+import 'package:ethio_linguo/services/audio/sound_effects.dart';
 import 'package:ethio_linguo/services/analytics/analytics.dart';
 import 'package:ethio_linguo/services/tutor/relay_tutor_engine.dart';
 import 'package:ethio_linguo/services/tutor/tutor_engine.dart';
@@ -229,6 +231,24 @@ void main() {
         expect(c.learnerTurns, 0, reason: 'questions are not English practice');
       },
     );
+
+    test('Professor state + real mic level follow the session', () async {
+      final (c, _, services, _) = await make(FakeLiveTutor());
+      await c.start();
+      expect(c.professorState, CharacterState.idle);
+      await c.startListening();
+      await pumpEventQueue();
+      // FakeRecognizer reported a level then a final result; after the
+      // reply the mic is closed so the meter is cleared (never faked).
+      expect(c.level.value, isNull);
+      expect(c.professorState, CharacterState.approving);
+      expect(
+        (services.sounds as SilentSoundEffects).played,
+        contains(Sfx.correct),
+      );
+      await c.sendText('i been busy');
+      expect(c.professorState, CharacterState.correcting);
+    });
 
     test('corrections can be saved to My Words', () async {
       final (c, _, services, _) = await make(FakeLiveTutor());

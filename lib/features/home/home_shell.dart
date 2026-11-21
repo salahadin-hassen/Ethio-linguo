@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app_services.dart';
 import '../../core/components/brand_icons.dart';
 import '../../core/motion/motion.dart';
 import '../../core/theme/app_colors.dart';
@@ -104,15 +105,30 @@ class _BottomNav extends StatelessWidget {
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(999),
                             ),
-                            child: brand != null
-                                ? BrandIcon(brand, size: 24, muted: i != index)
-                                : Icon(
-                                    icon,
-                                    size: 26,
-                                    color: i == index
-                                        ? AppColors.coralInk
-                                        : AppColors.textMuted,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                brand != null
+                                    ? BrandIcon(
+                                        brand,
+                                        size: 24,
+                                        muted: i != index,
+                                      )
+                                    : Icon(
+                                        icon,
+                                        size: 26,
+                                        color: i == index
+                                            ? AppColors.coralInk
+                                            : AppColors.textMuted,
+                                      ),
+                                if (i == HomeTab.myWords.index)
+                                  const Positioned(
+                                    right: -12,
+                                    top: -6,
+                                    child: _SavedCountBadge(),
                                   ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 2),
                           FittedBox(
@@ -139,6 +155,47 @@ class _BottomNav extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Live count of saved expressions; bumps when a new word is saved so the
+/// learner SEES where their word went.
+class _SavedCountBadge extends StatelessWidget {
+  const _SavedCountBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = ServicesScope.of(context).vocabulary;
+    return ListenableBuilder(
+      listenable: repo,
+      builder: (context, _) {
+        final n = repo.all.length;
+        if (n == 0) return const SizedBox.shrink();
+        return TweenAnimationBuilder<double>(
+          key: ValueKey(n),
+          tween: Tween(begin: 1.4, end: 1),
+          duration: Motion.of(context, Motion.reaction),
+          curve: Motion.spring,
+          builder: (_, v, child) => Transform.scale(scale: v, child: child),
+          child: Container(
+            key: const ValueKey('nav_my_words_badge'),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppColors.teal,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: AppColors.surface, width: 1.5),
+            ),
+            child: Text(
+              '$n',
+              style: AppType.caption.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

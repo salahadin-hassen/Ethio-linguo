@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/app_services.dart';
 import '../../../core/components/app_button.dart';
 import '../../../core/components/app_sheet.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/l10n/support_text.dart';
+import '../../../core/motion/motion.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/content.dart';
 import '../../../data/models/language.dart';
 import '../../../data/models/transcript.dart';
+import '../../../services/audio/sound_effects.dart';
 import '../../../services/tutor/explanation_provider.dart';
 
 /// Contextual phrase card: expression, translation, meaning in this scene,
@@ -192,6 +195,37 @@ class _ExpressionCardState extends State<_ExpressionCard> {
           ],
         ),
         const SizedBox(height: Space.md),
+        AnimatedSwitcher(
+          duration: Motion.of(context, Motion.reaction),
+          switchInCurve: Motion.spring,
+          transitionBuilder: (child, anim) =>
+              ScaleTransition(scale: anim, child: child),
+          child: saved
+              ? Padding(
+                  key: const ValueKey('expression_saved_badge'),
+                  padding: const EdgeInsets.only(bottom: Space.xs),
+                  child: ListenableBuilder(
+                    listenable: services.vocabulary,
+                    builder: (context, _) => Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.bookmark_added_rounded,
+                          color: AppColors.tealInk,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${services.vocabulary.all.length} in My Words',
+                          style: AppType.label.copyWith(
+                            color: AppColors.tealInk,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         AppButton(
           key: const ValueKey('expression_save'),
           label: saved ? s.en(S.saved) : s.en(S.saveToMyWords),
@@ -202,7 +236,13 @@ class _ExpressionCardState extends State<_ExpressionCard> {
               : () async {
                   setState(() => _saving = true);
                   await widget.onSave();
-                  if (mounted) setState(() => _saving = false);
+                  if (!mounted) return;
+                  // Feedback only once the save really happened.
+                  if (widget.isSaved()) {
+                    HapticFeedback.lightImpact();
+                    services.sounds.play(Sfx.save);
+                  }
+                  setState(() => _saving = false);
                 },
         ),
         const SizedBox(height: Space.xs),

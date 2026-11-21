@@ -5,6 +5,7 @@ import 'package:ethio_linguo/data/models/content.dart';
 import 'package:ethio_linguo/data/models/language.dart';
 import 'package:ethio_linguo/data/repositories/vocabulary_repository.dart';
 import 'package:ethio_linguo/services/analytics/analytics.dart';
+import 'package:ethio_linguo/services/audio/sound_effects.dart';
 import 'package:ethio_linguo/services/playback/media_playback.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -93,6 +94,16 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('SAVED TO MY WORDS'), findsOneWidget);
     expect(vocab!.containsExpression('long_time_no_see'), isTrue);
+    // Feedback matches the real saved state: badge + count + sound.
+    expect(
+      find.byKey(const ValueKey('expression_saved_badge')),
+      findsOneWidget,
+    );
+    expect(find.text('1 in My Words'), findsOneWidget);
+    expect(
+      (h.services.sounds as SilentSoundEffects).played,
+      contains(Sfx.save),
+    );
     expect(analytics.logged(AnalyticsEvent.vocabularySaved), isTrue);
     await t.tapAt(const Offset(10, 10)); // dismiss sheet
     await t.pumpAndSettle();
@@ -219,7 +230,10 @@ void main() {
     await t.tap(find.byKey(const ValueKey('speak_start')));
     await t.pumpAndSettle();
     expect(
-      find.text('Hey! Long time no see! How have you been?'),
+      find.text(
+        'Hey! Long time no see! How have you been?',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
     expect(tutor.requests.first.context.focusExpression, 'Long time no see');
@@ -227,7 +241,15 @@ void main() {
 
     // Live mode: the mic opened by itself after the opening line, heard the
     // learner, and the Professor answered with a task to do next.
-    expect(find.text('Reply to: Long time no see'), findsOneWidget);
+    expect(
+      find.text('Reply to: Long time no see', skipOffstage: false),
+      findsOneWidget,
+    );
+    // Professor reflects the real verdict of the learner's last turn.
+    expect(
+      find.bySemanticsLabel(RegExp(r'The Professor, (approving|listening)')),
+      findsWidgets,
+    );
     expect(find.byKey(const ValueKey('speak_repeat_score')), findsOneWidget);
     expect(find.byKey(const ValueKey('speak_task')), findsOneWidget);
     expect(find.byKey(const ValueKey('speak_state_listening')), findsOneWidget);

@@ -37,6 +37,10 @@ class MediaLessonController extends ChangeNotifier {
   MediaPlayback? playback;
 
   TranscriptSegment? current;
+
+  /// Expression currently open in the learning panel (highlighted in the
+  /// subtitle while the panel is shown).
+  Expression? selected;
   bool showTranslation = true;
   bool completed = false;
 
@@ -132,11 +136,18 @@ class MediaLessonController extends ChangeNotifier {
 
   /// Tapping an expression pauses playback so the learner can read.
   Future<void> onExpressionSelected(Expression e) async {
+    selected = e;
+    notifyListeners();
     await playback?.pause();
     _services.analytics.log(AnalyticsEvent.subtitleSelected, {
       'contentId': contentId,
       'expressionId': e.id,
     });
+  }
+
+  void clearSelection() {
+    selected = null;
+    if (!_disposed) notifyListeners();
   }
 
   bool isSaved(Expression e) => _services.vocabulary.containsExpression(e.id);

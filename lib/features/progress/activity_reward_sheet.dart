@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app_services.dart';
 import '../../core/components/animated_count.dart';
+import '../../services/audio/sound_effects.dart';
 import '../../core/components/app_button.dart';
 import '../../core/components/app_sheet.dart';
 import '../../core/components/brand_icons.dart';
@@ -20,7 +22,23 @@ Future<void> showActivityReward(
   String? detail,
   String? primaryLabel,
   VoidCallback? onPrimary,
-}) => showAppSheet<void>(
+}) {
+  ServicesScope.of(context).sounds.play(
+    reward.newAchievements.isNotEmpty || reward.leveledUp
+        ? Sfx.achievement
+        : Sfx.xp,
+  );
+  return _sheet(context, reward, title, detail, primaryLabel, onPrimary);
+}
+
+Future<void> _sheet(
+  BuildContext context,
+  ActivityReward reward,
+  String title,
+  String? detail,
+  String? primaryLabel,
+  VoidCallback? onPrimary,
+) => showAppSheet<void>(
   context,
   builder: (ctx) => Stack(
     alignment: Alignment.topCenter,
@@ -29,7 +47,11 @@ Future<void> showActivityReward(
         key: const ValueKey('reward_sheet'),
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Mascot(mood: MascotMood.celebrating, size: 120),
+          const Mascot(
+            mood: MascotMood.celebrating,
+            size: 120,
+            reactOnMount: true,
+          ),
           const SizedBox(height: Space.sm),
           Text(title, style: AppType.headline, textAlign: TextAlign.center),
           if (detail != null) ...[

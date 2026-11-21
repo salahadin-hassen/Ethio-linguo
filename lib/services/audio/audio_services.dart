@@ -13,6 +13,9 @@ abstract interface class VoiceRecorder {
   Future<bool> hasPermission();
   Future<void> start();
 
+  /// Real input level (0..1) while recording; empty when unsupported.
+  Stream<double> get levels;
+
   /// Stops and returns a WAV clip (16 kHz mono), or null if nothing usable.
   Future<Uint8List?> stop();
   Future<void> cancel();
@@ -56,6 +59,11 @@ class PcmVoiceRecorder implements VoiceRecorder {
     );
     _sub = stream.listen(_buf.add);
   }
+
+  @override
+  Stream<double> get levels => _r
+      .onAmplitudeChanged(const Duration(milliseconds: 120))
+      .map((a) => ((a.current + 50) / 50).clamp(0.0, 1.0));
 
   @override
   Future<Uint8List?> stop() async {
@@ -128,6 +136,8 @@ class PlatformAudioClipPlayer implements AudioClipPlayer {
 
 class UnavailableVoiceRecorder implements VoiceRecorder {
   const UnavailableVoiceRecorder();
+  @override
+  Stream<double> get levels => const Stream.empty();
   @override
   Future<bool> hasPermission() async => false;
   @override

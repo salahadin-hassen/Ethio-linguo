@@ -111,6 +111,7 @@ void main() {
     final ethiopic = RegExp(r'[ሀ-፿]');
     final allowed = {
       'lib/core/l10n/app_strings.dart',
+      'lib/features/companion/companion_lines.dart', // dialogue catalogue
       'lib/data/models/language.dart', // language names in their own script
       'lib/data/local/demo_course.dart', // legacy path-lesson content
       'lib/data/local/instructions.dart', // legacy path-lesson instructions
