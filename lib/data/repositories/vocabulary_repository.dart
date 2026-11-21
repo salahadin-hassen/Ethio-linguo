@@ -3,120 +3,111 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/saved_expression.dart';
+import '../models/vocabulary.dart';
 
-// SHARED CONTRACT — see docs/INTEGRATION_CONTRACTS.md §5 and §8.
-// Writers: media_lesson (Engineer 2), speak (Engineer 3).
-// Readers: my_words, home (Engineer 1).
+// SHARED CONTRACT (v2) — docs/INTEGRATION_CONTRACTS.md §5, §8.
+// Writers: media_learning, tutor, revision. Readers: my_words, home.
 
-/// My Words storage. Listenable so any screen can rebuild when a word is
-/// saved elsewhere. Everything is local; there is no sync in the MVP.
+/// My Words. Local storage is the source of truth; a future sync service
+/// reads `dirty` entries and pushes them. Listenable so screens rebuild.
 abstract class VocabularyRepository extends ChangeNotifier {
   /// Newest first.
-  List<SavedExpression> get all;
+  List<VocabularyEntry> get all;
 
-  bool contains(String id);
+  VocabularyEntry? byExpressionId(String expressionId);
 
-  /// Saves or replaces by id.
-  Future<void> save(SavedExpression e);
+  bool containsExpression(String expressionId) =>
+      byExpressionId(expressionId) != null;
+
+  List<VocabularyEntry> due(DateTime now) => [
+    for (final e in all)
+      if (e.isDue(now)) e,
+  ];
+
+  /// Inserts, or replaces the entry with the same id.
+  Future<void> save(VocabularyEntry entry);
 
   Future<void> remove(String id);
-
-  Future<void> markReviewed(String id);
 }
 
-class SharedPrefsVocabularyRepository extends VocabularyRepository {
-  SharedPrefsVocabularyRepository._(this._prefs) {
-    _items = _read();
+/// Shared list-manipulation logic for both implementations.
+mixin _ListStore on VocabularyRepository {
+  List<VocabularyEntry> get items;
+  set items(List<VocabularyEntry> v);
+  Future<void> persist();
+
+  @override
+  List<VocabularyEntry> get all => List.unmodifiable(items);
+
+  @override
+  VocabularyEntry? byExpressionId(String expressionId) {
+    for (final e in items) {
+      if (e.expressionId == expressionId) return e;
+    }
+    return null;
   }
 
-  static const storageKey = 'saved_expressions_v1';
+  @override
+  Future<void> save(VocabularyEntry entry) {
+    final i = items.indexWhere((e) => e.id == entry.id);
+    items = i < 0 ? [entry, ...items] : ([...items]..[i] = entry);
+    notifyListeners();
+    return persist();
+  }
+
+  @override
+  Future<void> remove(String id) {
+    items = items.where((e) => e.id != id).toList();
+    notifyListeners();
+    return persist();
+  }
+}
+
+class SharedPrefsVocabularyRepository extends VocabularyRepository
+    with _ListStore {
+  SharedPrefsVocabularyRepository._(this._prefs) {
+    items = _read();
+  }
+
+  static const storageKey = 'vocabulary_entries_v2';
   final SharedPreferences _prefs;
-  late List<SavedExpression> _items;
+
+  @override
+  late List<VocabularyEntry> items;
 
   static Future<SharedPrefsVocabularyRepository> create() async =>
       SharedPrefsVocabularyRepository._(await SharedPreferences.getInstance());
 
-  List<SavedExpression> _read() {
+  List<VocabularyEntry> _read() {
     final raw = _prefs.getString(storageKey);
     if (raw == null) return [];
     try {
       return [
         for (final e in jsonDecode(raw) as List)
-          SavedExpression.fromJson((e as Map).cast<String, Object?>()),
+          VocabularyEntry.fromJson((e as Map).cast<String, Object?>()),
       ];
-    } catch (_) {
+    } catch (e) {
+      debugPrint('vocabulary: corrupt store reset ($e)');
       return []; // Corrupt data must never brick the app.
     }
   }
 
-  Future<void> _write() async {
-    notifyListeners();
-    await _prefs.setString(
-      storageKey,
-      jsonEncode([for (final e in _items) e.toJson()]),
-    );
-  }
-
   @override
-  List<SavedExpression> get all => List.unmodifiable(_items);
-
-  @override
-  bool contains(String id) => _items.any((e) => e.id == id);
-
-  @override
-  Future<void> save(SavedExpression e) {
-    _items = [e, ..._items.where((x) => x.id != e.id)];
-    return _write();
-  }
-
-  @override
-  Future<void> remove(String id) {
-    _items = _items.where((x) => x.id != id).toList();
-    return _write();
-  }
-
-  @override
-  Future<void> markReviewed(String id) {
-    _items = [
-      for (final x in _items)
-        x.id == id ? x.copyWith(reviewCount: x.reviewCount + 1) : x,
-    ];
-    return _write();
-  }
+  Future<void> persist() => _prefs.setString(
+    storageKey,
+    jsonEncode([for (final e in items) e.toJson()]),
+  );
 }
 
 /// Volatile repository for tests and previews.
-class InMemoryVocabularyRepository extends VocabularyRepository {
-  InMemoryVocabularyRepository([List<SavedExpression>? initial])
-    : _items = [...?initial];
-
-  List<SavedExpression> _items;
-
-  @override
-  List<SavedExpression> get all => List.unmodifiable(_items);
+class InMemoryVocabularyRepository extends VocabularyRepository
+    with _ListStore {
+  InMemoryVocabularyRepository([List<VocabularyEntry>? initial])
+    : items = [...?initial];
 
   @override
-  bool contains(String id) => _items.any((e) => e.id == id);
+  List<VocabularyEntry> items;
 
   @override
-  Future<void> save(SavedExpression e) async {
-    _items = [e, ..._items.where((x) => x.id != e.id)];
-    notifyListeners();
-  }
-
-  @override
-  Future<void> remove(String id) async {
-    _items = _items.where((x) => x.id != id).toList();
-    notifyListeners();
-  }
-
-  @override
-  Future<void> markReviewed(String id) async {
-    _items = [
-      for (final x in _items)
-        x.id == id ? x.copyWith(reviewCount: x.reviewCount + 1) : x,
-    ];
-    notifyListeners();
-  }
+  Future<void> persist() async {}
 }

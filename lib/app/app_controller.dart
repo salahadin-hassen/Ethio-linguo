@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/util/local_id.dart';
+import '../data/models/activity.dart';
 import '../data/models/course.dart';
 import '../data/models/gamification.dart';
 import '../data/models/language.dart';
@@ -108,10 +110,29 @@ class AppController extends ChangeNotifier {
     await _store.save(next);
   }
 
-  Future<void> chooseLanguages(NativeLanguage native, TargetLanguage target) =>
-      _commit(
-        _progress.copyWith(native: native, target: target, onboarded: true),
-      );
+  LearnerProfile get profile => _progress.profile;
+
+  /// Onboarding: persists learner preferences and assigns a local id.
+  Future<void> chooseLanguages(
+    NativeLanguage native,
+    TargetLanguage target, {
+    LearnerLevel? level,
+  }) => _commit(
+    _progress.copyWith(
+      native: native,
+      target: target,
+      level: level,
+      onboarded: true,
+      learnerId: _progress.learnerId ?? newLocalId(),
+      createdAt: _progress.createdAt ?? _clock().toUtc().toIso8601String(),
+    ),
+  );
+
+  Future<void> setNativeLanguage(NativeLanguage native) =>
+      _commit(_progress.copyWith(native: native));
+
+  Future<void> setLevel(LearnerLevel level) =>
+      _commit(_progress.copyWith(level: level));
 
   Future<void> setHearts(int hearts) => _commit(
     _progress.copyWith(hearts: hearts.clamp(0, LearnerProgress.maxHearts)),
@@ -178,12 +199,25 @@ class AppController extends ChangeNotifier {
     return base + r.correctFirstTry + (r.perfect ? 5 : 0);
   }
 
-  /// Shared XP hook for non-path activities (media lesson, tutor
-  /// conversation). Adds XP to today's stats and extends the streak.
-  /// Contract: docs/INTEGRATION_CONTRACTS.md §6. Returns the XP awarded.
-  Future<int> recordActivity({required String activityId, required int xp}) {
+  bool hasCompleted(String activityId) =>
+      _progress.completedActivityIds.contains(activityId);
+
+  /// THE central progress mechanism for non-path activities (media lesson,
+  /// revision, tutor). Screens never touch XP, streaks or achievements
+  /// directly. Contract: docs/INTEGRATION_CONTRACTS.md §6.
+  Future<ActivityReward> completeActivity(
+    LearningActivity activity, {
+    int units = 0,
+  }) async {
     final p = _progress;
     final t = today;
+    final repeat = p.completedActivityIds.contains(activity.id);
+    final xp = ActivityXp.forCompletion(
+      activity.type,
+      repeat: repeat,
+      units: units,
+    );
+    final streakBefore = p.streakOn(t);
     final int streak;
     if (p.lastActiveDay == t) {
       streak = max(p.streak, 1);
@@ -194,20 +228,37 @@ class AppController extends ChangeNotifier {
       streak = 1;
     }
     final daily = p.dailyFor(t);
-    final gained = max(xp, 0);
-    return _commit(
-      p.copyWith(
-        totalXp: p.totalXp + gained,
-        streak: streak,
-        lastActiveDay: t,
-        daily: DailyStats(
-          day: t,
-          xp: daily.xp + gained,
-          lessons: daily.lessons,
-          perfectLessons: daily.perfectLessons,
-        ),
+    final before = achievements
+        .where((a) => a.unlocked)
+        .map((a) => a.id)
+        .toSet();
+    final next = p.copyWith(
+      totalXp: p.totalXp + xp,
+      streak: streak,
+      lastActiveDay: t,
+      completedActivityIds: {...p.completedActivityIds, activity.id},
+      daily: DailyStats(
+        day: t,
+        xp: daily.xp + xp,
+        lessons: daily.lessons + 1,
+        perfectLessons: daily.perfectLessons,
       ),
-    ).then((_) => gained);
+    );
+    final reward = ActivityReward(
+      activityId: activity.id,
+      xpEarned: xp,
+      firstCompletion: !repeat,
+      streakBefore: streakBefore,
+      streakAfter: streak,
+      levelBefore: LevelInfo.fromXp(p.totalXp),
+      levelAfter: LevelInfo.fromXp(next.totalXp),
+      newAchievements: Achievement.evaluate(
+        next,
+        checkpointIds: _checkpointIds,
+      ).where((a) => a.unlocked && !before.contains(a.id)).toList(),
+    );
+    await _commit(next);
+    return reward;
   }
 
   Future<LessonReward> completeLesson(

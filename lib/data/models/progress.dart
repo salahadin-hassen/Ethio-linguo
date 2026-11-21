@@ -80,6 +80,10 @@ class DailyStats {
 /// Everything persisted about the learner. Immutable; updated via copyWith.
 class LearnerProgress {
   const LearnerProgress({
+    this.learnerId,
+    this.createdAt,
+    this.level = LearnerLevel.beginner,
+    this.completedActivityIds = const {},
     this.onboarded = false,
     this.native,
     this.target = TargetLanguage.english,
@@ -98,6 +102,15 @@ class LearnerProgress {
   static const maxHearts = 5;
   static const schemaVersion = 1;
 
+  /// Local learner id (UUID), assigned at onboarding.
+  final String? learnerId;
+
+  /// ISO-8601 UTC, set at onboarding.
+  final String? createdAt;
+  final LearnerLevel level;
+
+  /// Non-path activities completed at least once (`media:<id>`, ...).
+  final Set<String> completedActivityIds;
   final bool onboarded;
   final NativeLanguage? native;
   final TargetLanguage target;
@@ -125,7 +138,22 @@ class LearnerProgress {
 
   bool activeOn(String today) => lastActiveDay == today;
 
+  /// Learner preferences as a profile view. Profile and progress share one
+  /// local document so onboarding writes are atomic; split them when
+  /// accounts arrive (docs/ADR/0002-local-first-persistence.md).
+  LearnerProfile get profile => LearnerProfile(
+    id: learnerId ?? 'local',
+    nativeLanguage: native ?? NativeLanguage.amharic,
+    targetLanguages: [target],
+    level: level,
+    createdAt: createdAt,
+  );
+
   LearnerProgress copyWith({
+    String? learnerId,
+    String? createdAt,
+    LearnerLevel? level,
+    Set<String>? completedActivityIds,
     bool? onboarded,
     NativeLanguage? native,
     TargetLanguage? target,
@@ -140,6 +168,10 @@ class LearnerProgress {
     DailyStats? daily,
     int? longestCorrectRun,
   }) => LearnerProgress(
+    learnerId: learnerId ?? this.learnerId,
+    createdAt: createdAt ?? this.createdAt,
+    level: level ?? this.level,
+    completedActivityIds: completedActivityIds ?? this.completedActivityIds,
     onboarded: onboarded ?? this.onboarded,
     native: native ?? this.native,
     target: target ?? this.target,
@@ -157,6 +189,10 @@ class LearnerProgress {
 
   Map<String, Object?> toJson() => {
     'v': schemaVersion,
+    'learnerId': learnerId,
+    'createdAt': createdAt,
+    'level': level.rank,
+    'activities': completedActivityIds.toList(),
     'onboarded': onboarded,
     'native': native?.code,
     'target': target.code,
@@ -175,6 +211,12 @@ class LearnerProgress {
   factory LearnerProgress.fromJson(Map<String, Object?> j) {
     final wordsJson = (j['words'] as Map?)?.cast<String, Object?>() ?? {};
     return LearnerProgress(
+      learnerId: j['learnerId'] as String?,
+      createdAt: j['createdAt'] as String?,
+      level: LearnerLevel.fromRank((j['level'] as num?)?.toInt()),
+      completedActivityIds: ((j['activities'] as List?) ?? const [])
+          .cast<String>()
+          .toSet(),
       onboarded: j['onboarded'] as bool? ?? false,
       native: NativeLanguage.fromCode(j['native'] as String?),
       target:
@@ -203,4 +245,21 @@ class LearnerProgress {
       longestCorrectRun: (j['run'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// Learner preferences (read model; persisted inside [LearnerProgress]).
+class LearnerProfile {
+  const LearnerProfile({
+    required this.id,
+    required this.nativeLanguage,
+    required this.targetLanguages,
+    required this.level,
+    this.createdAt,
+  });
+
+  final String id;
+  final NativeLanguage nativeLanguage;
+  final List<TargetLanguage> targetLanguages;
+  final LearnerLevel level;
+  final String? createdAt;
 }
