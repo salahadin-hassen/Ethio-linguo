@@ -119,22 +119,82 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('animations on: state change reacts, then settles', (t) async {
+  group('rig controller (app -> Rive contract)', () {
+    test('real events map to rig inputs and one trigger per transition', () {
+      final rig = CharacterRigController();
+      rig.applyState(CharacterState.listening, previous: CharacterState.idle);
+      expect(rig.listening, isTrue);
+      expect(rig.drainTriggers(), [RigContract.nod]);
+      rig.applyState(
+        CharacterState.thinking,
+        previous: CharacterState.listening,
+      );
+      expect((rig.listening, rig.thinking), (false, true));
+      expect(rig.emotion, RigEmotion.thinking);
+      rig.applyState(
+        CharacterState.approving,
+        previous: CharacterState.thinking,
+      );
+      expect(rig.drainTriggers(), [RigContract.correctAnswer]);
+      rig.applyState(
+        CharacterState.approving,
+        previous: CharacterState.approving,
+      );
+      expect(
+        rig.drainTriggers(),
+        isEmpty,
+        reason: 'no re-trigger without change',
+      );
+      rig.applyState(CharacterState.correcting, previous: CharacterState.idle);
+      expect(rig.drainTriggers(), [RigContract.incorrectAnswer]);
+      expect(rig.emotion, RigEmotion.encouraging);
+    });
+
+    test('speaking mirrors real playback; amplitude only when provided', () {
+      final rig = CharacterRigController()..setSpeaking(true);
+      expect(rig.speaking, isTrue);
+      expect(rig.voiceAmplitude, isNull, reason: 'never synthesised');
+      rig.setSpeaking(false, amplitude: 0.8);
+      expect(rig.voiceAmplitude, isNull);
+    });
+
+    test('tap looks toward the touch, then reacts; variants rotate', () {
+      final rig = CharacterRigController()..reactToTap(x: 0.6, y: -2);
+      expect((rig.gazeX, rig.gazeY), (0.6, -1.0));
+      expect(rig.drainTriggers(), [RigContract.tapReaction]);
+      rig.setIdleVariant(4);
+      expect(rig.idleVariant, 1);
+    });
+
+    test('contract: every cast rig names its artboard and state machine', () {
+      expect(RigContract.specs.keys, {CastMember.spark, CastMember.professor});
+      for (final s in RigContract.specs.values) {
+        expect(s.asset, endsWith('.riv'));
+        expect(s.stateMachine, endsWith('Character'));
+      }
+    });
+  });
+
+  testWidgets('no rig bundled -> honest static pose, no transform motion', (
+    t,
+  ) async {
+    final rig = CharacterRigController();
     Widget at(CharacterState s) => MaterialApp(
-      home: TickerMode(
-        enabled: true,
-        child: CharacterAvatar(
-          character: CastMember.professor,
-          state: s,
-          animate: true,
-        ),
+      home: CharacterAvatar(
+        character: CastMember.professor,
+        state: s,
+        rig: rig,
+        onTap: () {},
       ),
     );
     await t.pumpWidget(at(CharacterState.correcting));
+    await t.pumpAndSettle();
     await t.pumpWidget(at(CharacterState.approving));
-    await t.pump(const Duration(milliseconds: 100));
-    expect(t.binding.hasScheduledFrame, isTrue); // reaction playing
-    await t.pump(const Duration(seconds: 1));
+    await t.pumpAndSettle();
+    expect(find.byType(Transform), findsNothing);
     expect(find.bySemanticsLabel('The Professor, approving'), findsOneWidget);
+    expect(rig.drainTriggers(), contains(RigContract.correctAnswer));
+    await t.tap(find.byType(CharacterAvatar));
+    expect(rig.drainTriggers(), [RigContract.tapReaction]);
   });
 }

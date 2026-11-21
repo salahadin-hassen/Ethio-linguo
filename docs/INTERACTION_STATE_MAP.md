@@ -1,5 +1,7 @@
 # Interaction State Map
 
+> The "Response" column below describes the intended rig behaviour. It is delivered by the Rive files specified in `CHARACTER_RIG_SPEC.md`. Until those files exist, the character shows the static pose for its state, while sounds, UI feedback and state changes work as described.
+
 Each row gives: event (trigger) → app state → character state → visual and audio response → completion.
 
 Character states always come from real app state. No arbitrary timers stand in for events.
