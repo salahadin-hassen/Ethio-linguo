@@ -41,7 +41,8 @@ void main() {
 
   setUpAll(() async {
     final repo = BundledContentRepository(bundle: DiskBundle());
-    content = (await repo.list()).single;
+    final all = await repo.list();
+    content = all.firstWhere((c) => c.id == 'bus_stop_hello');
     transcript = await BundledTranscriptRepository(bundle: DiskBundle())
         .load(content, languages: codes);
   });
@@ -95,7 +96,10 @@ void main() {
           'assets/content/bus_stop_hello/manifest.json': manifest,
         }),
       );
-      expect(await repo.list(), isEmpty);
+      expect(
+        (await repo.list()).map((c) => c.id),
+        isNot(contains('bus_stop_hello')),
+      );
     });
   });
 
@@ -294,4 +298,32 @@ void main() {
       expect(p.createdAt, isNotNull);
     });
   });
+
+  test(
+    'second scene (family moments) is listed, playable and translated',
+    () async {
+      final all = await BundledContentRepository(bundle: DiskBundle()).list();
+      expect(
+        all.map((c) => c.id),
+        containsAll(['bus_stop_hello', 'family_moments']),
+      );
+      final c = all.firstWhere((c) => c.id == 'family_moments');
+      expect(File(c.media.localAsset!).existsSync(), isTrue);
+      expect(File(c.media.localAsset!).lengthSync(), lessThan(10 << 20));
+      final t = await BundledTranscriptRepository(bundle: DiskBundle())
+          .load(c, languages: codes);
+      expect(t.segments, hasLength(3));
+      for (final s in t.segments) {
+        for (final code in codes) {
+          expect(s.translations[code], isNotEmpty, reason: '${s.id} $code');
+        }
+      }
+      expect(t.expressions, hasLength(3));
+      for (final e in t.expressions) {
+        for (final code in codes) {
+          expect(e.meaning[code], isNotEmpty, reason: '${e.id} $code');
+        }
+      }
+    },
+  );
 }

@@ -1,4 +1,7 @@
 {
   "schemaVersion": 2,
-  "items": ["assets/content/bus_stop_hello/manifest.json"]
+  "items": [
+    "assets/content/bus_stop_hello/manifest.json",
+    "assets/content/family_moments/manifest.json"
+  ]
 }

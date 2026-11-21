@@ -1,0 +1,26 @@
+{
+  "language": "om",
+  "status": "draft",
+  "segments": {
+    "s1": "Ilmi abbaa isaa wajjin deemaa jira.",
+    "s2": "Intalli kitaaba dubbisaa jirti.",
+    "s3": "Haati intala ishee wajjin nyaata bilcheessaa jirti."
+  },
+  "expressions": {
+    "walking_with": {
+      "meaning": "wajjin deemaa jira",
+      "context": "'is walking' gocha amma raawwatamaa jiru agarsiisa (is + -ing). Ilmi amma abbaa isaa wajjin deemaa jira.",
+      "example": "Isheen hiriyaa ishee wajjin deemaa jirti."
+    },
+    "reading_a_book": {
+      "meaning": "kitaaba dubbisaa jirti",
+      "context": "'is reading' intalli yeroo ammaa kitaaba dubbisaa akka jirtu ibsa.",
+      "example": "Ani amma kitaaba dubbisaa jira."
+    },
+    "cooking_food": {
+      "meaning": "nyaata bilcheessaa jirti",
+      "context": "'is cooking' haati amma intala ishee wajjin nyaata bilcheessaa akka jirtu agarsiisa.",
+      "example": "Inni irbaata bilcheessaa jira."
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "language": "am",
+  "status": "draft",
+  "segments": {
+    "s1": "ልጁ ከአባቱ ጋር እየተጓዘ ነው።",
+    "s2": "ልጅቷ መጽሐፍ እያነበበች ነው።",
+    "s3": "እናትየዋ ከልጇ ጋር ምግብ እያበሰለች ነው።"
+  },
+  "expressions": {
+    "walking_with": {
+      "meaning": "ከ… ጋር እየሄደ ነው",
+      "context": "'is walking' አሁን እየሆነ ያለ ድርጊትን ያሳያል (is + -ing)። ልጁ አሁን ከአባቱ ጋር እየሄደ ነው።",
+      "example": "እሷ ከጓደኛዋ ጋር እየሄደች ነው።"
+    },
+    "reading_a_book": {
+      "meaning": "መጽሐፍ እያነበበች ነው",
+      "context": "'is reading' ልጅቷ በዚህ ሰዓት መጽሐፍ እያነበበች መሆኗን ይገልጻል።",
+      "example": "አሁን መጽሐፍ እያነበብኩ ነው።"
+    },
+    "cooking_food": {
+      "meaning": "ምግብ እያበሰለች ነው",
+      "context": "'is cooking' እናትየዋ አሁን ከልጇ ጋር ምግብ እያበሰለች መሆኑን ያሳያል።",
+      "example": "እሱ እራት እያበሰለ ነው።"
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "mediaId": "family_moments_video",
+  "language": "en",
+  "segments": [
+    {
+      "id": "s1",
+      "startMs": 200,
+      "endMs": 4264,
+      "speakerId": "narrator",
+      "text": "The boy is walking with his father.",
+      "expressionIds": [
+        "walking_with"
+      ]
+    },
+    {
+      "id": "s2",
+      "startMs": 6700,
+      "endMs": 9442,
+      "speakerId": "narrator",
+      "text": "The girl is reading a book.",
+      "expressionIds": [
+        "reading_a_book"
+      ]
+    },
+    {
+      "id": "s3",
+      "startMs": 13200,
+      "endMs": 17834,
+      "speakerId": "narrator",
+      "text": "The mother is cooking food with her daughter.",
+      "expressionIds": [
+        "cooking_food"
+      ]
+    }
+  ],
+  "expressions": [
+    {
+      "id": "walking_with",
+      "segmentId": "s1",
+      "text": "is walking with",
+      "example": "She is walking with her friend."
+    },
+    {
+      "id": "reading_a_book",
+      "segmentId": "s2",
+      "text": "is reading a book",
+      "example": "I am reading a book now."
+    },
+    {
+      "id": "cooking_food",
+      "segmentId": "s3",
+      "text": "is cooking food",
+      "example": "He is cooking dinner."
+    }
+  ]
+}

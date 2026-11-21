@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "id": "family_moments",
+  "type": "video",
+  "title": "Everyday family moments",
+  "description": "A boy walks with his father, a girl reads, a mother cooks with her daughter.",
+  "sourceLanguage": "en",
+  "difficulty": 1,
+  "durationMs": 19500,
+  "contentVersion": 1,
+  "offlineAvailable": true,
+  "sceneSummary": "A short narrated scene of everyday family life: a boy walks with his father, a girl reads a book, and a mother cooks food with her daughter. It practises describing what people are doing right now with the present continuous (is + -ing).",
+  "speakers": {
+    "narrator": "Narrator"
+  },
+  "media": {
+    "id": "family_moments_video",
+    "type": "video",
+    "durationMs": 19500,
+    "localAsset": "assets/content/family_moments/clip.mp4",
+    "posterAsset": "assets/content/family_moments/poster.jpg"
+  },
+  "transcript": "assets/content/family_moments/transcript.en.json",
+  "translations": {
+    "am": {
+      "status": "draft",
+      "translator": "Hackathon team (draft, pending native-speaker review)"
+    },
+    "om": {
+      "status": "draft",
+      "translator": "Hackathon team (draft, pending native-speaker review)"
+    }
+  },
+  "rights": {
+    "creator": "Ethio Linguo hackathon team (supplied file)",
+    "rightsHolder": "To be confirmed",
+    "licenseType": "team-supplied",
+    "attribution": "Video and subtitles supplied by the Ethio Linguo team. Source and license to be confirmed before public release.",
+    "source": "video5_lesson_3languages.mp4 with .en/.am/.om subtitles",
+    "offlineUseAllowed": true,
+    "derivativeTranslationsAllowed": true,
+    "components": []
+  }
+}

@@ -33,6 +33,8 @@ flutter:
     - assets/content/
     - assets/content/bus_stop_hello/
     - assets/content/bus_stop_hello/translations/
+    - assets/content/family_moments/
+    - assets/content/family_moments/translations/
     # Original synthesized UI sounds (tool/sfx/make_sfx.py)
     - assets/sfx/
     # Rigged Rive characters (designer-authored; see docs/CHARACTER_RIG_SPEC.md)
